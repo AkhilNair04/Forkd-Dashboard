@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+
       <div className="flex-1 bg-[#111] text-white p-6">
         <h1 className="text-3xl font-bold text-primary mb-6">Dashboard Overview</h1>
 

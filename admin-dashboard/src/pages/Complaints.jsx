@@ -56,7 +56,7 @@ export default function Complaints() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+
       <div className="flex-1 p-6 bg-[#111] text-white">
         <h2 className="text-2xl font-bold text-primary mb-4">Complaints - {activeTab}</h2>
 

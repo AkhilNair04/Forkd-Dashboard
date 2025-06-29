@@ -99,7 +99,7 @@ export default function Users() {
 
   return (
     <div className="flex min-h-screen bg-[#111] text-white">
-      <Sidebar />
+
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-primary">Users</h1>

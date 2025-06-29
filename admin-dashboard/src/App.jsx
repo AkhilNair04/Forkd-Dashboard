@@ -1,23 +1,58 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Login from './pages/login';
-import Dashboard from './pages/dashboard';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+
+import Sidebar from './components/Sidebar';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 import Chefs from './pages/Chefs';
-import Rider from './pages/Rider'; 
+import Rider from './pages/Rider';
 import Users from './pages/Users';
 import Complaints from './pages/Complaints';
-function App() {
+
+const PrivateRoute = ({ children }) => {
+  const isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+  return isLoggedIn ? children : <Navigate to="/login" replace />;
+};
+
+function AppLayout({ children }) {
+  const location = useLocation();
   const isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
 
   return (
+    <div className="flex min-h-screen">
+      {isLoggedIn && location.pathname !== '/login' && <Sidebar />}
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(() =>
+    localStorage.getItem('adminLoggedIn') === 'true'
+  );
+
+  useEffect(() => {
+    const updateLoginState = () => {
+      setIsLoggedIn(localStorage.getItem('adminLoggedIn') === 'true');
+    };
+    window.addEventListener('storage', updateLoginState);
+    return () => window.removeEventListener('storage', updateLoginState);
+  }, []);
+
+  return (
     <Router>
-      <Routes>
-        <Route path="/" element={isLoggedIn ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/dashboard" element={isLoggedIn ? <Dashboard /> : <Navigate to="/" />} />
-        <Route path="/chefs" element={isLoggedIn ? <Chefs /> : <Navigate to="/" />} />
-        <Route path="/riders" element={isLoggedIn ? <Rider /> : <Navigate to="/" />} /> 
-        <Route path="/users" element={isLoggedIn ? <Users /> : <Navigate to="/" />} /> 
-        <Route path="/complaints" element={isLoggedIn ? <Complaints /> : <Navigate to="/" />} /> 
-      </Routes>
+      <AppLayout>
+        <Routes>
+          <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/chefs" element={<PrivateRoute><Chefs /></PrivateRoute>} />
+          <Route path="/riders" element={<PrivateRoute><Rider /></PrivateRoute>} />
+          <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
+          <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
+          <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
+          <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
+        </Routes>
+      </AppLayout>
     </Router>
   );
 }

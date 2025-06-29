@@ -4,12 +4,18 @@ import { useNavigate } from 'react-router-dom';
 export default function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = () => {
     if (username === 'admin' && password === 'forkd123') {
+      setLoading(true);
       localStorage.setItem('adminLoggedIn', 'true');
-      navigate('/dashboard');
+      localStorage.setItem('authToken', 'mock-token');
+
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 200);
     } else {
       alert('Invalid credentials');
     }
@@ -34,10 +40,11 @@ export default function Login() {
           onChange={e => setPassword(e.target.value)}
         />
         <button
-          className="w-full bg-primary py-2 rounded hover:bg-opacity-90 font-semibold"
           onClick={handleLogin}
+          disabled={loading}
+          className="w-full bg-primary py-2 rounded hover:bg-opacity-90 font-semibold"
         >
-          Login
+          {loading ? 'Logging in...' : 'Login'}
         </button>
       </div>
     </div>
