@@ -8,6 +8,7 @@ import Chefs from './pages/Chefs';
 import Rider from './pages/Rider';
 import Users from './pages/Users';
 import Complaints from './pages/Complaints';
+import ChatPage from './pages/ChatPage'; // ✅ Added chat page import
 
 const PrivateRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem('adminLoggedIn') === 'true';
@@ -49,6 +50,7 @@ function App() {
           <Route path="/riders" element={<PrivateRoute><Rider /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
           <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
+          <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} /> {/* ✅ NEW CHAT ROUTE */}
           <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
           <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
         </Routes>

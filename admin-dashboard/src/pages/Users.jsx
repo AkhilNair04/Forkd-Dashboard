@@ -1,7 +1,10 @@
+// ===============================
+// Users.jsx  (with Chat navigation)
+// ===============================
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
 
+// ─── Dummy Complaints Data ─────────────────────────────────────────────────────
 const complaints = [
   {
     ticketId: "T001",
@@ -12,7 +15,7 @@ const complaints = [
       email: "john@example.com",
       district: "Ernakulam",
       state: "Kerala",
-      image: "",
+      image: "https://i.pravatar.cc/100?u=user123",
       type: "user",
     },
     accused: {
@@ -21,8 +24,8 @@ const complaints = [
       username: "ravik",
       email: "ravi@example.com",
       district: "Chennai",
-      state: "Tamil Nadu",
-      image: "",
+      state: "Tamil Nadu",
+      image: "https://i.pravatar.cc/100?u=rider456",
       type: "rider",
     },
     type: "user",
@@ -68,8 +71,8 @@ export default function Users() {
     complaints
       .filter((c) => c.status === "pending")
       .forEach((c) => {
-        complaintUsers.push({ ...c.complaintee, ticket: c.ticketId, type: c.type });
-        complaintUsers.push({ ...c.accused, ticket: c.ticketId, type: c.type });
+        complaintUsers.push({ ...c.complaintee, ticket: c.ticketId });
+        complaintUsers.push({ ...c.accused, ticket: c.ticketId });
       });
 
     const uniqueUsers = Array.from(
@@ -80,9 +83,7 @@ export default function Users() {
   }, [history]);
 
   const filteredUsers = users.filter((u) => {
-    if (searchId.trim() && !u.id.toLowerCase().includes(searchId.toLowerCase())) {
-      return false;
-    }
+    if (searchId && !u.id.toLowerCase().includes(searchId.toLowerCase())) return false;
     if (statusFilter === "all") return true;
     if (statusFilter === "active") return u.currentStatus === "active";
     if (statusFilter === "ban") return u.currentStatus === "banned";
@@ -99,7 +100,6 @@ export default function Users() {
 
   return (
     <div className="flex min-h-screen bg-[#111] text-white">
-
       <div className="flex-1 p-6 overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-primary">Users</h1>
