@@ -1,160 +1,265 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 
+const complaints = [
+  {
+    ticketId: "T001",
+    complaintee: {
+      id: "user123",
+      name: "John Doe",
+      username: "johndoe",
+      email: "john@example.com",
+      district: "Ernakulam",
+      state: "Kerala",
+      image: "",
+      type: "user",
+    },
+    accused: {
+      id: "rider456",
+      name: "Ravi Kumar",
+      username: "ravik",
+      email: "ravi@example.com",
+      district: "Chennai",
+      state: "Tamil Nadu",
+      image: "",
+      type: "rider",
+    },
+    type: "user",
+    status: "pending",
+    message: "The rider was rude during delivery.",
+    observations: "Rider was delayed and showed aggressive behavior.",
+    proofs: ["https://via.placeholder.com/150"],
+    response: "",
+  },
+];
+
 export default function Users() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [search, setSearch] = useState("");
+  const [searchId, setSearchId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedAction, setSelectedAction] = useState({});
-  const [reasons, setReasons] = useState({});
-  const [suspendTimers, setSuspendTimers] = useState({});
+  const [history, setHistory] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
-  useEffect(() => {
-    // Simulated data
-    const complaintParticipants = [
-      { id: 1, name: "Arjun Rao", username: "arjun_rao", ticket: "T001", role: "User", status: "active" },
-      { id: 2, name: "Meera Nair", username: "meera_chef", ticket: "T001", role: "Chef", status: "banned" },
-      { id: 3, name: "Ravi Kumar", username: "ravi_rider", ticket: "T002", role: "Rider", status: "suspended", suspendUntil: "2025-07-05" }
-    ];
-    setUsers(complaintParticipants);
-  }, []);
-
-  const handleAction = (id, action) => {
-    const reason = reasons[id] || "";
-    const timer = suspendTimers[id] || null;
-
-    if ((action === "suspend" || action === "ban") && !reason) {
-      alert("Please provide a reason for this action.");
-      return;
-    }
-
-    const updatedUsers = users.map(user => {
-      if (user.id === id) {
-        let updatedStatus = action;
-        if (action === "reactivate") updatedStatus = "active";
-        return {
-          ...user,
-          status: updatedStatus,
-          suspendUntil: action === "suspend" ? timer : null,
-        };
-      }
-      return user;
-    });
-
-    setUsers(updatedUsers);
-    setHistory([...history, { id, action, reason, timestamp: new Date().toISOString(), timer }]);
+  const deriveStatus = (userId) => {
+    const last = [...history].reverse().find((h) => h.userId === userId);
+    if (!last) return "active";
+    if (last.actionType === "reactivate") return "active";
+    if (last.actionType === "ban") return "banned";
+    if (last.actionType === "suspend") return "suspended";
+    return "active";
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) || user.username.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || user.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const statusColor = (status) => {
+    switch (status) {
+      case "banned":
+        return "text-red-500";
+      case "suspended":
+        return "text-yellow-400";
+      default:
+        return "text-green-400";
+    }
+  };
+
+  useEffect(() => {
+    const complaintUsers = [];
+    complaints
+      .filter((c) => c.status === "pending")
+      .forEach((c) => {
+        complaintUsers.push({ ...c.complaintee, ticket: c.ticketId, type: c.type });
+        complaintUsers.push({ ...c.accused, ticket: c.ticketId, type: c.type });
+      });
+
+    const uniqueUsers = Array.from(
+      new Map(complaintUsers.map((u) => [u.id, u])).values()
+    ).map((u) => ({ ...u, currentStatus: deriveStatus(u.id) }));
+
+    setUsers(uniqueUsers);
+  }, [history]);
+
+  const filteredUsers = users.filter((u) => {
+    if (searchId.trim() && !u.id.toLowerCase().includes(searchId.toLowerCase())) {
+      return false;
+    }
+    if (statusFilter === "all") return true;
+    if (statusFilter === "active") return u.currentStatus === "active";
+    if (statusFilter === "ban") return u.currentStatus === "banned";
+    if (statusFilter === "suspend") return u.currentStatus === "suspended";
+    return true;
   });
 
-  return (
-    <div className="flex min-h-screen">
-      <Sidebar />
-      <div className="flex-1 bg-[#111] text-white p-6">
-        <h1 className="text-2xl font-bold text-primary mb-6">Users Management</h1>
+  const recordAction = (userId, actionType, reason, duration = null) => {
+    const now = new Date().toISOString();
+    setHistory((prev) => [...prev, { userId, actionType, reason, date: now, duration }]);
+  };
 
-        <div className="flex gap-4 mb-6">
+  const getUserById = (id) => users.find((u) => u.id === id);
+
+  return (
+    <div className="flex min-h-screen bg-[#111] text-white">
+      <Sidebar />
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-primary">Users</h1>
+          <button
+            className="px-4 py-2 bg-primary rounded shadow"
+            onClick={() => setShowHistory(!showHistory)}
+          >
+            {showHistory ? "Hide History" : "Action History"}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-4 mb-6">
           <input
             type="text"
-            placeholder="Search by name or username"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="p-2 rounded bg-gray-800 text-white focus:outline-none"
+            value={searchId}
+            onChange={(e) => setSearchId(e.target.value)}
+            placeholder="Search by User ID"
+            className="p-2 rounded bg-gray-800 text-white w-full sm:w-64"
           />
           <select
-            className="bg-gray-800 p-2 rounded"
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="p-2 rounded bg-gray-800 text-white"
           >
             <option value="all">All</option>
             <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="banned">Banned</option>
+            <option value="ban">Banned</option>
+            <option value="suspend">Suspended</option>
           </select>
         </div>
 
-        <div className="grid gap-4">
-          {filteredUsers.map(user => (
-            <div key={user.id} className="bg-[#1F1F1F] p-4 rounded shadow">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p><strong>{user.name}</strong> (@{user.username})</p>
-                  <p>Ticket: {user.ticket}</p>
-                  <p>Status: <span className="capitalize">{user.status}</span></p>
-                  {user.status === "suspended" && <p className="text-sm text-yellow-500">Suspended until: {user.suspendUntil}</p>}
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  {user.status !== "banned" && user.status !== "suspended" && (
-                    <>
-                      <select
-                        className="bg-gray-700 p-1 rounded"
-                        value={selectedAction[user.id] || ""}
-                        onChange={e => setSelectedAction({ ...selectedAction, [user.id]: e.target.value })}
-                      >
-                        <option value="">Select Action</option>
-                        <option value="ban">Ban</option>
-                        <option value="suspend">Suspend</option>
-                      </select>
-
-                      {(selectedAction[user.id] === "ban" || selectedAction[user.id] === "suspend") && (
-                        <>
-                          <input
-                            className="bg-gray-800 p-1 rounded mt-1"
-                            placeholder="Reason"
-                            value={reasons[user.id] || ""}
-                            onChange={e => setReasons({ ...reasons, [user.id]: e.target.value })}
-                          />
-                          {selectedAction[user.id] === "suspend" && (
-                            <input
-                              type="date"
-                              className="bg-gray-800 p-1 rounded mt-1"
-                              onChange={e => setSuspendTimers({ ...suspendTimers, [user.id]: e.target.value })}
-                            />
-                          )}
-                          <button
-                            className="bg-red-600 px-3 py-1 rounded mt-2 hover:bg-red-700"
-                            onClick={() => handleAction(user.id, selectedAction[user.id])}
-                          >
-                            Confirm {selectedAction[user.id]}
-                          </button>
-                        </>
-                      )}
-                    </>
-                  )}
-                  {(user.status === "banned" || user.status === "suspended") && (
-                    <button
-                      className="bg-green-600 px-3 py-1 rounded hover:bg-green-700"
-                      onClick={() => handleAction(user.id, "reactivate")}
-                    >
-                      Reactivate
-                    </button>
-                  )}
-                </div>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredUsers.map((user) => (
+            <div
+              key={user.id}
+              className="bg-[#1F1F1F] p-4 rounded shadow cursor-pointer hover:ring ring-primary"
+              onClick={() => setSelectedUser(user)}
+            >
+              <img
+                src={user.image || "/default.png"}
+                alt="avatar"
+                className="w-16 h-16 rounded-full mb-2 object-cover"
+              />
+              <h2 className="text-xl font-semibold">{user.name}</h2>
+              <p className="text-sm text-gray-400">@{user.username}</p>
+              <p className="text-sm">ID: {user.id}</p>
+              <p className="text-sm">Ticket: {user.ticket}</p>
+              <p className="text-sm">State: {user.state}</p>
+              <p className="text-sm">District: {user.district}</p>
+              <p className={`text-sm font-semibold ${statusColor(user.currentStatus)}`}>Status: {user.currentStatus}</p>
             </div>
           ))}
         </div>
 
-        <div className="mt-10">
-          <h2 className="text-xl font-bold mb-4 text-primary">Action History</h2>
-          {history.length === 0 ? (
-            <p className="text-gray-400">No actions taken yet.</p>
-          ) : (
-            <ul className="text-sm space-y-2">
-              {history.map((entry, idx) => (
-                <li key={idx} className="text-gray-300">
-                  [{new Date(entry.timestamp).toLocaleString()}] ID {entry.id} - {entry.action.toUpperCase()} - Reason: {entry.reason || "N/A"}
-                  {entry.timer && ` - Until: ${entry.timer}`}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {showHistory && (
+          <div className="mt-10 bg-[#1F1F1F] p-4 rounded max-h-96 overflow-y-auto">
+            <h2 className="text-xl font-bold mb-3 text-primary">Action History</h2>
+            {history.length === 0 ? (
+              <p className="text-gray-400">No actions yet.</p>
+            ) : (
+              history.map((h, idx) => {
+                const user = getUserById(h.userId);
+                return (
+                  <div
+                    key={idx}
+                    className="text-sm mb-4 p-2 border-b border-gray-700 cursor-pointer hover:text-primary"
+                    onClick={() => setSelectedUser(user)}
+                  >
+                    <p>
+                      <strong className="capitalize">{h.actionType}</strong> — User: {h.userId} — {h.reason} — {new Date(h.date).toLocaleString()} {h.duration && ` (Duration: ${h.duration} days)`}
+                    </p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {selectedUser && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-[#1F1F1F] rounded-lg p-6 w-[90%] max-w-lg relative">
+              <button
+                className="absolute top-3 right-4 text-white text-xl"
+                onClick={() => setSelectedUser(null)}
+              >
+                &times;
+              </button>
+              <img
+                src={selectedUser.image || "/default.png"}
+                alt="avatar"
+                className="w-20 h-20 rounded-full object-cover mb-4 mx-auto"
+              />
+              <h2 className="text-xl text-center font-semibold mb-2">{selectedUser.name}</h2>
+              <p className="text-sm text-center text-gray-400 mb-4">@{selectedUser.username}</p>
+              <div className="text-sm space-y-1">
+                <p>User ID: {selectedUser.id}</p>
+                <p>User Type: {selectedUser.type}</p>
+                <p>State: {selectedUser.state}</p>
+                <p>District: {selectedUser.district}</p>
+                <p>Ticket ID: {selectedUser.ticket}</p>
+                <p>Status: {selectedUser.currentStatus}</p>
+              </div>
+              <div className="mt-4">
+                <h3 className="font-semibold mb-1">Previous Actions:</h3>
+                {history.filter(h => h.userId === selectedUser.id).length === 0 ? (
+                  <p className="text-gray-400 text-sm">None</p>
+                ) : (
+                  history.filter(h => h.userId === selectedUser.id).map((h, idx) => (
+                    <p key={idx} className="text-xs mb-1">• {h.actionType} — {h.reason} — {new Date(h.date).toLocaleString()}</p>
+                  ))
+                )}
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  className="bg-primary flex-1 rounded px-4 py-2"
+                  onClick={() => navigate(`/chat/${selectedUser.id}`)}
+                >
+                  Chat
+                </button>
+                <button
+                  className="bg-red-600 flex-1 rounded px-4 py-2"
+                  onClick={() => {
+                    const reason = prompt("Reason for ban:");
+                    const duration = prompt("Ban duration (days):");
+                    if (reason && duration) {
+                      recordAction(selectedUser.id, "ban", reason, duration);
+                      setSelectedUser(null);
+                    }
+                  }}
+                >
+                  Ban
+                </button>
+                <button
+                  className="bg-yellow-500 text-black flex-1 rounded px-4 py-2"
+                  onClick={() => {
+                    const reason = prompt("Reason for suspension:");
+                    const duration = prompt("Duration (days):");
+                    if (reason && duration) {
+                      recordAction(selectedUser.id, "suspend", reason, duration);
+                      setSelectedUser(null);
+                    }
+                  }}
+                >
+                  Suspend
+                </button>
+              </div>
+              {selectedUser.currentStatus !== "active" && (
+                <button
+                  className="mt-2 w-full bg-green-600 rounded px-4 py-2"
+                  onClick={() => {
+                    recordAction(selectedUser.id, "reactivate", "Account reactivated");
+                    setSelectedUser(null);
+                  }}
+                >
+                  Reactivate
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
