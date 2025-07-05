@@ -1,10 +1,7 @@
-// ===============================
-// Users.jsx  (with Chat navigation)
-// ===============================
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// ─── Dummy Complaints Data ─────────────────────────────────────────────────────
+// Dummy Complaints Data
 const complaints = [
   {
     ticketId: "T001",
@@ -24,7 +21,7 @@ const complaints = [
       username: "ravik",
       email: "ravi@example.com",
       district: "Chennai",
-      state: "Tamil Nadu",
+      state: "Tamil Nadu",
       image: "https://i.pravatar.cc/100?u=rider456",
       type: "rider",
     },
@@ -46,12 +43,22 @@ export default function Users() {
   const [showHistory, setShowHistory] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  // Status logic: suspension expires automatically after duration
   const deriveStatus = (userId) => {
     const last = [...history].reverse().find((h) => h.userId === userId);
     if (!last) return "active";
     if (last.actionType === "reactivate") return "active";
     if (last.actionType === "ban") return "banned";
-    if (last.actionType === "suspend") return "suspended";
+    if (last.actionType === "suspend") {
+      const suspendedAt = new Date(last.date);
+      const now = new Date();
+      const durationDays = parseInt(last.duration, 10) || 0;
+      if (durationDays > 0) {
+        const resumeDate = new Date(suspendedAt.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        if (now > resumeDate) return "active";
+      }
+      return "suspended";
+    }
     return "active";
   };
 
@@ -91,6 +98,7 @@ export default function Users() {
     return true;
   });
 
+  // Add an action to history
   const recordAction = (userId, actionType, reason, duration = null) => {
     const now = new Date().toISOString();
     setHistory((prev) => [...prev, { userId, actionType, reason, date: now, duration }]);
@@ -138,11 +146,7 @@ export default function Users() {
               className="bg-[#1F1F1F] p-4 rounded shadow cursor-pointer hover:ring ring-primary"
               onClick={() => setSelectedUser(user)}
             >
-              <img
-                src={user.image || "/default.png"}
-                alt="avatar"
-                className="w-16 h-16 rounded-full mb-2 object-cover"
-              />
+              {/* Profile image removed */}
               <h2 className="text-xl font-semibold">{user.name}</h2>
               <p className="text-sm text-gray-400">@{user.username}</p>
               <p className="text-sm">ID: {user.id}</p>
@@ -187,11 +191,7 @@ export default function Users() {
               >
                 &times;
               </button>
-              <img
-                src={selectedUser.image || "/default.png"}
-                alt="avatar"
-                className="w-20 h-20 rounded-full object-cover mb-4 mx-auto"
-              />
+              {/* Profile image removed */}
               <h2 className="text-xl text-center font-semibold mb-2">{selectedUser.name}</h2>
               <p className="text-sm text-center text-gray-400 mb-4">@{selectedUser.username}</p>
               <div className="text-sm space-y-1">
@@ -223,9 +223,8 @@ export default function Users() {
                   className="bg-red-600 flex-1 rounded px-4 py-2"
                   onClick={() => {
                     const reason = prompt("Reason for ban:");
-                    const duration = prompt("Ban duration (days):");
-                    if (reason && duration) {
-                      recordAction(selectedUser.id, "ban", reason, duration);
+                    if (reason && reason.trim()) {
+                      recordAction(selectedUser.id, "ban", reason, null);
                       setSelectedUser(null);
                     }
                   }}
@@ -236,11 +235,11 @@ export default function Users() {
                   className="bg-yellow-500 text-black flex-1 rounded px-4 py-2"
                   onClick={() => {
                     const reason = prompt("Reason for suspension:");
+                    if (!reason || !reason.trim()) return; // cancel if no reason
                     const duration = prompt("Duration (days):");
-                    if (reason && duration) {
-                      recordAction(selectedUser.id, "suspend", reason, duration);
-                      setSelectedUser(null);
-                    }
+                    if (!duration || !duration.trim()) return; // cancel if no duration
+                    recordAction(selectedUser.id, "suspend", reason, duration);
+                    setSelectedUser(null);
                   }}
                 >
                   Suspend

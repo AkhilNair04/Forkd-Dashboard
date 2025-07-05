@@ -30,7 +30,6 @@ export default function Sidebar() {
     { path: "/riders", label: "Riders", icon: <Bike size={18} /> },
     { path: "/complaints", label: "Complaints", icon: <AlertOctagon size={18} /> },
 
-    // 🔒 Optional / future routes
     // { path: "/orders", label: "Orders", icon: <ClipboardList size={18} /> },
     // { path: "/dishes", label: "Dishes", icon: <UtensilsCrossed size={18} /> },
     // { path: "/transactions", label: "Transactions", icon: <CreditCard size={18} /> },
