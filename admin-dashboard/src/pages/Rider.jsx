@@ -1,37 +1,30 @@
-import { useState } from "react";
-import Sidebar from "../components/Sidebar";
-
-const dummyRiders = [
-  {
-    id: 1,
-    name: "Rider A",
-    state: "Kerala",
-    licenseNumber: "DL123456789",
-    licenseImage: "https://via.placeholder.com/100",
-    aadharNumber: "4567-1234-7890",
-    aadharImage: "https://via.placeholder.com/300x200.png?text=Aadhar+Card",
-    profilePic: "https://randomuser.me/api/portraits/men/21.jpg",
-  },
-  {
-    id: 2,
-    name: "Rider B",
-    state: "Tamil Nadu",
-    licenseNumber: "DL987654321",
-    licenseImage: "https://via.placeholder.com/100",
-    aadharNumber: "7654-4321-0987",
-    aadharImage: "https://via.placeholder.com/300x200.png?text=Aadhar+Card",
-    profilePic: "https://randomuser.me/api/portraits/men/22.jpg",
-  },
-];
+import { useEffect, useState } from "react";
+import { supabase } from "../../supabaseClient";
 
 export default function Riders() {
   const [activeTab, setActiveTab] = useState("requests");
-  const [requests, setRequests] = useState(dummyRiders);
+  const [requests, setRequests] = useState([]);
   const [approved, setApproved] = useState([]);
   const [denied, setDenied] = useState([]);
   const [selectedRiders, setSelectedRiders] = useState([]);
   const [showReasonPrompt, setShowReasonPrompt] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+
+  // Fetch riders from DB
+  useEffect(() => {
+    async function fetchRiders() {
+      const { data, error } = await supabase.from('Rider_Details').select('*');
+      if (error) {
+        console.error("Supabase error:", error);
+        return;
+      }
+      // No status field in schema, so group by is_active (true=pending, false=approved/denied)
+      setRequests(data.filter(r => r.is_active)); // show all active as requests
+      setApproved(data.filter(r => r.is_active === false && r.delivery_status === 'approved'));
+      setDenied(data.filter(r => r.is_active === false && r.delivery_status === 'denied'));
+    }
+    fetchRiders();
+  }, []);
 
   const getList = () => {
     if (activeTab === "requests") return requests;
@@ -39,6 +32,36 @@ export default function Riders() {
     return denied;
   };
 
+  // Example: Approve selected riders (update in Supabase)
+  const handleBulkApprove = async () => {
+    for (let id of selectedRiders) {
+      await supabase
+        .from("Rider_Details")
+        .update({ is_active: false, delivery_status: 'approved' })
+        .eq("id", id);
+    }
+    // Refresh data
+    window.location.reload();
+  };
+
+  // Example: Reject selected riders (update in Supabase)
+  const handleBulkReject = async () => {
+    setShowReasonPrompt(true);
+  };
+
+  const handleSubmitBulkReject = async () => {
+    for (let id of selectedRiders) {
+      await supabase
+        .from("Rider_Details")
+        .update({ is_active: false, delivery_status: 'denied' })
+        .eq("id", id);
+    }
+    setShowReasonPrompt(false);
+    setRejectionReason("");
+    window.location.reload();
+  };
+
+  // Checkbox logic
   const handleSelect = (id) => {
     setSelectedRiders((prev) =>
       prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
@@ -46,47 +69,8 @@ export default function Riders() {
   };
 
   const handleSelectAll = () => {
-    const allIds = getList().map((rider) => rider.id);
-    setSelectedRiders(
-      selectedRiders.length === allIds.length ? [] : allIds
-    );
-  };
-
-  const handleApprove = (id) => {
-    const issuanceId = "INS" + Math.floor(100000 + Math.random() * 900000);
-    const rider = requests.find((r) => r.id === id);
-    if (rider) {
-      const approvedRider = { ...rider, issuanceNumber: issuanceId };
-      setApproved([...approved, approvedRider]);
-      setRequests(requests.filter((r) => r.id !== id));
-      setSelectedRiders(selectedRiders.filter((rid) => rid !== id));
-    }
-  };
-
-  const handleReject = (id, reason = "") => {
-    const rider = requests.find((r) => r.id === id);
-    if (rider) {
-      const rejectedRider = { ...rider, reason };
-      setDenied([...denied, rejectedRider]);
-      setRequests(requests.filter((r) => r.id !== id));
-      setSelectedRiders(selectedRiders.filter((rid) => rid !== id));
-    }
-  };
-
-  const handleBulkApprove = () => {
-    selectedRiders.forEach(handleApprove);
-    setSelectedRiders([]);
-  };
-
-  const handleBulkReject = () => {
-    setShowReasonPrompt(true);
-  };
-
-  const handleSubmitBulkReject = () => {
-    selectedRiders.forEach((id) => handleReject(id, rejectionReason));
-    setShowReasonPrompt(false);
-    setRejectionReason("");
-    setSelectedRiders([]);
+    const list = getList().map((r) => r.id);
+    setSelectedRiders(selectedRiders.length === list.length ? [] : list);
   };
 
   const onTabChange = (tab) => {
@@ -96,7 +80,6 @@ export default function Riders() {
 
   return (
     <div className="flex min-h-screen">
-      {/* <Sidebar /> */}
       <div className="flex-1 bg-[#111] text-white p-6">
         <h1 className="text-3xl font-bold text-primary mb-6">Riders Management</h1>
         <div className="flex gap-6 mb-6">
@@ -141,25 +124,24 @@ export default function Riders() {
                     />
                   </th>
                 )}
-                <th className="px-3 py-2 text-left">Profile Pic</th>
                 <th className="px-3 py-2 text-left">Name</th>
-                <th className="px-3 py-2 text-left">State</th>
                 <th className="px-3 py-2 text-left">Aadhar No.</th>
-                <th className="px-3 py-2 text-left">Aadhar Image</th>
-                <th className="px-3 py-2 text-left">License No.</th>
-                <th className="px-3 py-2 text-left">License Image</th>
+                <th className="px-3 py-2 text-left">Gov ID</th>
+                <th className="px-3 py-2 text-left">Location</th>
+                <th className="px-3 py-2 text-left">Rating</th>
+                <th className="px-3 py-2 text-left">Profile Pic UID</th>
                 {activeTab === "approved" && (
-                  <th className="px-3 py-2 text-left">Issuance No.</th>
+                  <th className="px-3 py-2 text-left">Delivery Status</th>
                 )}
                 {activeTab === "denied" && (
-                  <th className="px-3 py-2 text-left">Rejection Reason</th>
+                  <th className="px-3 py-2 text-left">Delivery Status</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {getList().length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === "requests" ? 9 : 8} className="text-center py-8 text-gray-400">
+                  <td colSpan={activeTab === "requests" ? 8 : 7} className="text-center py-8 text-gray-400">
                     No riders in this category.
                   </td>
                 </tr>
@@ -175,24 +157,14 @@ export default function Riders() {
                         />
                       </td>
                     )}
-                    <td className="px-3 py-2">
-                      <img src={rider.profilePic} alt="Profile" className="w-12 h-12 rounded-full object-cover" />
-                    </td>
                     <td className="px-3 py-2">{rider.name}</td>
-                    <td className="px-3 py-2">{rider.state}</td>
-                    <td className="px-3 py-2">{rider.aadharNumber}</td>
-                    <td className="px-3 py-2">
-                      <img src={rider.aadharImage} alt="Aadhar" className="w-24 h-16 rounded object-cover" />
-                    </td>
-                    <td className="px-3 py-2">{rider.licenseNumber}</td>
-                    <td className="px-3 py-2">
-                      <img src={rider.licenseImage} alt="License" className="w-24 h-16 rounded object-cover" />
-                    </td>
-                    {activeTab === "approved" && (
-                      <td className="px-3 py-2 text-green-400">{rider.issuanceNumber}</td>
-                    )}
-                    {activeTab === "denied" && (
-                      <td className="px-3 py-2 text-red-400">{rider.reason}</td>
+                    <td className="px-3 py-2">{rider.aadharNumber || "-"}</td>
+                    <td className="px-3 py-2">{rider.gov_id || "-"}</td>
+                    <td className="px-3 py-2">{rider.location_details || "-"}</td>
+                    <td className="px-3 py-2">{rider.rating_avg || "-"}</td>
+                    <td className="px-3 py-2">{rider.profile_pic_uid || "-"}</td>
+                    {(activeTab === "approved" || activeTab === "denied") && (
+                      <td className="px-3 py-2">{rider.delivery_status}</td>
                     )}
                   </tr>
                 ))
@@ -234,11 +206,7 @@ export default function Riders() {
                 </button>
                 <button
                   className="bg-red-600 px-4 py-2 rounded hover:bg-red-700"
-                  onClick={() => {
-                    handleSubmitBulkReject();
-                    setShowReasonPrompt(false);
-                    setRejectionReason("");
-                  }}
+                  onClick={handleSubmitBulkReject}
                   disabled={!rejectionReason.trim()}
                 >
                   Submit
