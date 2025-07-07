@@ -13,15 +13,16 @@ export default function Riders() {
   // Fetch riders from DB
   useEffect(() => {
     async function fetchRiders() {
-      const { data, error } = await supabase.from('Rider_Details').select('*');
+      const { data, error } = await supabase
+        .from("Rider_Details")
+        .select("id, name, aadhar, gov_id, license_number, license_image, status, rejection_reason");
       if (error) {
         console.error("Supabase error:", error);
         return;
       }
-      // No status field in schema, so group by is_active (true=pending, false=approved/denied)
-      setRequests(data.filter(r => r.is_active)); // show all active as requests
-      setApproved(data.filter(r => r.is_active === false && r.delivery_status === 'approved'));
-      setDenied(data.filter(r => r.is_active === false && r.delivery_status === 'denied'));
+      setRequests(data.filter((r) => r.status?.toLowerCase() === "pending"));
+      setApproved(data.filter((r) => r.status?.toLowerCase() === "approved"));
+      setDenied(data.filter((r) => r.status?.toLowerCase() === "denied"));
     }
     fetchRiders();
   }, []);
@@ -32,28 +33,35 @@ export default function Riders() {
     return denied;
   };
 
-  // Example: Approve selected riders (update in Supabase)
+  // Approve selected
   const handleBulkApprove = async () => {
     for (let id of selectedRiders) {
       await supabase
         .from("Rider_Details")
-        .update({ is_active: false, delivery_status: 'approved' })
+        .update({
+          status: "approved",
+          is_active: true,
+          delivery_status: "approved",
+        })
         .eq("id", id);
     }
-    // Refresh data
     window.location.reload();
   };
 
-  // Example: Reject selected riders (update in Supabase)
-  const handleBulkReject = async () => {
-    setShowReasonPrompt(true);
-  };
+  // Show reason modal for reject
+  const handleBulkReject = () => setShowReasonPrompt(true);
 
+  // Reject selected
   const handleSubmitBulkReject = async () => {
     for (let id of selectedRiders) {
       await supabase
         .from("Rider_Details")
-        .update({ is_active: false, delivery_status: 'denied' })
+        .update({
+          status: "denied",
+          is_active: false,
+          delivery_status: "denied",
+          rejection_reason: rejectionReason,
+        })
         .eq("id", id);
     }
     setShowReasonPrompt(false);
@@ -86,7 +94,9 @@ export default function Riders() {
           {["requests", "approved", "denied"].map((tab) => (
             <button
               key={tab}
-              className={`px-4 py-2 rounded ${activeTab === tab ? "bg-primary text-white" : "bg-gray-800"}`}
+              className={`px-4 py-2 rounded ${
+                activeTab === tab ? "bg-primary text-white" : "bg-gray-800"
+              }`}
               onClick={() => onTabChange(tab)}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -116,7 +126,7 @@ export default function Riders() {
             <thead>
               <tr>
                 {activeTab === "requests" && (
-                  <th className="px-3 py-2">
+                  <th className="px-3 py-2 text-center align-middle">
                     <input
                       type="checkbox"
                       checked={selectedRiders.length === getList().length && getList().length > 0}
@@ -125,23 +135,23 @@ export default function Riders() {
                   </th>
                 )}
                 <th className="px-3 py-2 text-left">Name</th>
-                <th className="px-3 py-2 text-left">Aadhar No.</th>
+                <th className="px-3 py-2 text-left">Aadhar</th>
                 <th className="px-3 py-2 text-left">Gov ID</th>
-                <th className="px-3 py-2 text-left">Location</th>
-                <th className="px-3 py-2 text-left">Rating</th>
-                <th className="px-3 py-2 text-left">Profile Pic UID</th>
-                {activeTab === "approved" && (
-                  <th className="px-3 py-2 text-left">Delivery Status</th>
-                )}
+                <th className="px-3 py-2 text-left">License Number</th>
+                <th className="px-3 py-2 text-left">License Image</th>
+                <th className="px-3 py-2 text-left">Status</th>
                 {activeTab === "denied" && (
-                  <th className="px-3 py-2 text-left">Delivery Status</th>
+                  <th className="px-3 py-2 text-left">Rejection Reason</th>
                 )}
               </tr>
             </thead>
             <tbody>
               {getList().length === 0 ? (
                 <tr>
-                  <td colSpan={activeTab === "requests" ? 8 : 7} className="text-center py-8 text-gray-400">
+                  <td
+                    colSpan={activeTab === "requests" ? 8 : 7}
+                    className="text-center py-8 text-gray-400"
+                  >
                     No riders in this category.
                   </td>
                 </tr>
@@ -149,7 +159,7 @@ export default function Riders() {
                 getList().map((rider) => (
                   <tr key={rider.id} className="border-t border-[#222] hover:bg-[#232323]">
                     {activeTab === "requests" && (
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 text-center align-middle">
                         <input
                           type="checkbox"
                           checked={selectedRiders.includes(rider.id)}
@@ -157,14 +167,24 @@ export default function Riders() {
                         />
                       </td>
                     )}
-                    <td className="px-3 py-2">{rider.name}</td>
-                    <td className="px-3 py-2">{rider.aadharNumber || "-"}</td>
+                    <td className="px-3 py-2">{rider.name || "-"}</td>
+                    <td className="px-3 py-2">{rider.aadhar || "-"}</td>
                     <td className="px-3 py-2">{rider.gov_id || "-"}</td>
-                    <td className="px-3 py-2">{rider.location_details || "-"}</td>
-                    <td className="px-3 py-2">{rider.rating_avg || "-"}</td>
-                    <td className="px-3 py-2">{rider.profile_pic_uid || "-"}</td>
-                    {(activeTab === "approved" || activeTab === "denied") && (
-                      <td className="px-3 py-2">{rider.delivery_status}</td>
+                    <td className="px-3 py-2">{rider.license_number || "-"}</td>
+                    <td className="px-3 py-2">
+                      {rider.license_image ? (
+                        <img
+                          src={rider.license_image}
+                          alt="License"
+                          className="w-24 h-16 rounded object-cover"
+                        />
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td className="px-3 py-2">{rider.status || "-"}</td>
+                    {activeTab === "denied" && (
+                      <td className="px-3 py-2 text-red-400">{rider.rejection_reason || "-"}</td>
                     )}
                   </tr>
                 ))
@@ -185,7 +205,9 @@ export default function Riders() {
               >
                 ✕
               </button>
-              <h3 className="text-lg font-semibold text-primary mb-4">Reason for Rejection</h3>
+              <h3 className="text-lg font-semibold text-primary mb-4">
+                Reason for Rejection
+              </h3>
               <textarea
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
