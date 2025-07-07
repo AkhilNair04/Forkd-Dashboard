@@ -1,50 +1,10 @@
-import Sidebar from "../components/Sidebar";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell, Legend
-} from "recharts";
+import { useEffect, useState } from "react";
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { useEffect, useState } from "react";
-
-// Sample Data
-const ordersData = [
-  { day: "Mon", orders: 120 },
-  { day: "Tue", orders: 98 },
-  { day: "Wed", orders: 150 },
-  { day: "Thu", orders: 130 },
-  { day: "Fri", orders: 200 },
-  { day: "Sat", orders: 250 },
-  { day: "Sun", orders: 180 },
-];
-
-const transactionsData = [
-  { month: "Jan", value: 3000 },
-  { month: "Feb", value: 4200 },
-  { month: "Mar", value: 3900 },
-  { month: "Apr", value: 5000 },
-];
-
-const expendituresData = [
-  { month: "Jan", value: 1800 },
-  { month: "Feb", value: 2400 },
-  { month: "Mar", value: 2100 },
-  { month: "Apr", value: 2700 },
-];
-
-const profitData = transactionsData.map((t, i) => ({
-  month: t.month,
-  value: t.value - expendituresData[i]?.value,
-}));
-
-const userTypeData = [
-  { name: "Users", value: 1245 },
-  { name: "Chefs", value: 134 },
-  { name: "Riders", value: 98 },
-];
+import { supabase } from "../../supabaseClient";
 
 const COLORS = ["#F97316", "#10B981", "#3B82F6"];
-
 const flashQuotes = [
   "📦 Orders surging today!",
   "🚴‍♂️ Riders are active and delivering!",
@@ -53,23 +13,106 @@ const flashQuotes = [
   "📈 Sales showing an upward trend!",
 ];
 
-export default function Dashboard() {
-  const stats = [
-    { title: "Active Riders", value: 98, trend: "up" },
-    { title: "Active Users", value: 1245, trend: "up" },
-    { title: "Active Chefs", value: 134, trend: "down" },
-    { title: "Orders Today", value: 345, trend: "up" },
-    { title: "Transactions Today", value: "₹12,300", trend: "up" },
-  ];
+// Utility: Persist previous stats in localStorage
+function getPrevStats() {
+  try {
+    const data = localStorage.getItem("dashboardPrevStats");
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+function setPrevStats(stats) {
+  localStorage.setItem("dashboardPrevStats", JSON.stringify(stats));
+}
 
+export default function Dashboard() {
+  // State for active counts and user distribution
+  const [counts, setCounts] = useState({
+    riders: 0, users: 0, chefs: 0,
+    prevRiders: 0, prevUsers: 0, prevChefs: 0
+  });
+  const [userTypeData, setUserTypeData] = useState([
+    { name: "Users", value: 0 },
+    { name: "Chefs", value: 0 },
+    { name: "Riders", value: 0 },
+  ]);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
+  // Fetch actual numbers from Supabase on mount
+  useEffect(() => {
+    async function fetchStats() {
+      const prev = getPrevStats();
+      // Current stats
+      const [{ count: userCount }, { count: chefCount }, { count: riderCount }] = await Promise.all([
+        supabase.from("User_Details").select("*", { count: "exact", head: true }),
+        supabase.from("Chef").select("*", { count: "exact", head: true }).eq("decision", "approved"),
+        supabase.from("Rider_Details").select("*", { count: "exact", head: true }).eq("status", "approved"),
+      ]);
+      setCounts({
+        riders: riderCount || 0,
+        users: userCount || 0,
+        chefs: chefCount || 0,
+        prevRiders: prev.riders ?? (riderCount || 0),
+        prevUsers: prev.users ?? (userCount || 0),
+        prevChefs: prev.chefs ?? (chefCount || 0)
+      });
+      setUserTypeData([
+        { name: "Users", value: userCount || 0 },
+        { name: "Chefs", value: chefCount || 0 },
+        { name: "Riders", value: riderCount || 0 },
+      ]);
+      setPrevStats({
+        riders: riderCount || 0,
+        users: userCount || 0,
+        chefs: chefCount || 0,
+      });
+    }
+    fetchStats();
+  }, []);
+
+  // Flash quote
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentQuoteIndex((prev) => (prev + 1) % flashQuotes.length);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Trends
+  function getTrend(newVal, oldVal) {
+    if (newVal > oldVal) return "up";
+    if (newVal < oldVal) return "down";
+    return "flat";
+  }
+
+  const stats = [
+    {
+      title: "Active Riders",
+      value: counts.riders,
+      trend: getTrend(counts.riders, counts.prevRiders),
+    },
+    {
+      title: "Active Users",
+      value: counts.users,
+      trend: getTrend(counts.users, counts.prevUsers),
+    },
+    {
+      title: "Active Chefs",
+      value: counts.chefs,
+      trend: getTrend(counts.chefs, counts.prevChefs),
+    },
+    {
+      title: "Orders Today",
+      value: 0,
+      trend: "flat",
+    },
+    {
+      title: "Transactions Today",
+      value: 0,
+      trend: "flat",
+    },
+  ];
 
   return (
     <div className="flex min-h-screen bg-[#111] text-white">
@@ -113,96 +156,35 @@ export default function Dashboard() {
                 <h3 className="text-sm text-gray-400">{item.title}</h3>
                 <p className="text-2xl font-bold mt-2 text-primary">{item.value}</p>
               </div>
-              {item.trend === "up" ? (
-                <ArrowUpRight className="text-green-500" />
-              ) : (
-                <ArrowDownRight className="text-red-500" />
-              )}
+              {item.trend === "up" && <ArrowUpRight className="text-green-500" />}
+              {item.trend === "down" && <ArrowDownRight className="text-red-500" />}
+              {item.trend === "flat" && <span className="text-gray-400 text-2xl">—</span>}
             </motion.div>
           ))}
         </div>
 
-        {/* Graphs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Orders This Week */}
-          <div className="bg-white p-4 rounded-xl text-black">
-            <h3 className="mb-2 font-semibold">Orders This Week</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={ordersData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="orders" fill="#F97316" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Monthly Transactions */}
-          <div className="bg-white p-4 rounded-xl text-black">
-            <h3 className="mb-2 font-semibold">Monthly Transactions</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={transactionsData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#10B981" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Monthly Expenditures */}
-          <div className="bg-white p-4 rounded-xl text-black">
-            <h3 className="mb-2 font-semibold">Monthly Expenditures</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={expendituresData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#EF4444" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Monthly Profit */}
-          <div className="bg-white p-4 rounded-xl text-black">
-            <h3 className="mb-2 font-semibold">Monthly Profit</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={profitData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* User Distribution */}
-          <div className="bg-white p-4 rounded-xl col-span-1 md:col-span-2 text-black">
-            <h3 className="mb-2 font-semibold">User Distribution</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={userTypeData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label
-                >
-                  {userTypeData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        {/* User Distribution Pie Chart */}
+        <div className="bg-white p-4 rounded-xl text-black">
+          <h3 className="mb-2 font-semibold">User Distribution</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <PieChart>
+              <Pie
+                data={userTypeData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={80}
+                label
+              >
+                {userTypeData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>
