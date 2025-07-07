@@ -1,39 +1,112 @@
 import { useState } from "react";
 // import Sidebar from "../components/Sidebar"; // Uncomment if you use Sidebar
 
-const dummyData = {
-  Users: [
-    {
-      id: 1,
-      ticket: "U-001",
-      complaintee: "user123",
-      accusedId: "rider456",
-      category: "Riders",
-      complaint: "Rider was rude.",
-      observation: "Rider used abusive language.",
-      proof: "https://via.placeholder.com/150",
-      status: "Pending",
-    },
-  ],
-  Chefs: [
-    {
-      id: 2,
-      ticket: "C-001",
-      complaintee: "user456",
-      accusedId: "chef123",
-      category: "Chefs",
-      complaint: "Food was stale.",
-      observation: "Reported poor hygiene.",
-      proof: "https://via.placeholder.com/150",
-      status: "Pending",
-    },
-  ],
-  Riders: [],
-};
+const dummyData = [
+  // Users complaints
+  {
+    id: 1,
+    ticket: "U-001",
+    complaintee: "user123",
+    accusedId: "rider456",
+    category: "Riders",
+    complaint: "Rider was rude.",
+    observation: "Rider used abusive language.",
+    proof: "https://via.placeholder.com/150",
+    status: "Pending",
+    type: "Users",
+  },
+  {
+    id: 6,
+    ticket: "U-002",
+    complaintee: "user999",
+    accusedId: "rider321",
+    category: "Riders",
+    complaint: "Delivery delayed.",
+    observation: "Food delivered 2 hours late.",
+    proof: "https://via.placeholder.com/150",
+    status: "Resolved",
+    type: "Users",
+    action: "Resolved",
+    response: "Warned the rider. Won't happen again.",
+  },
+  // Chefs complaints
+  {
+    id: 2,
+    ticket: "C-001",
+    complaintee: "user456",
+    accusedId: "chef123",
+    category: "Chefs",
+    complaint: "Food was stale.",
+    observation: "Reported poor hygiene.",
+    proof: "https://via.placeholder.com/150",
+    status: "Pending",
+    type: "Chefs",
+  },
+  {
+    id: 7,
+    ticket: "C-002",
+    complaintee: "user222",
+    accusedId: "chef245",
+    category: "Chefs",
+    complaint: "Unhygienic packaging.",
+    observation: "Food box not sealed properly.",
+    proof: "https://via.placeholder.com/150",
+    status: "Resolved",
+    type: "Chefs",
+    action: "Dismissed",
+    response: "Chef warned, complaint dismissed after review.",
+  },
+  // Riders complaints
+  {
+    id: 3,
+    ticket: "R-001",
+    complaintee: "user789",
+    accusedId: "rider999",
+    category: "Riders",
+    complaint: "Wrong address delivered.",
+    observation: "Order given to wrong person.",
+    proof: "https://via.placeholder.com/150",
+    status: "Pending",
+    type: "Riders",
+  },
+  {
+    id: 4,
+    ticket: "R-002",
+    complaintee: "user431",
+    accusedId: "rider124",
+    category: "Riders",
+    complaint: "Rider demanded extra money.",
+    observation: "Rider asked for tips.",
+    proof: "https://via.placeholder.com/150",
+    status: "Resolved",
+    type: "Riders",
+    action: "Resolved",
+    response: "Strict warning issued to the rider.",
+  },
+  // Some more
+  {
+    id: 5,
+    ticket: "C-003",
+    complaintee: "user001",
+    accusedId: "chef007",
+    category: "Chefs",
+    complaint: "Taste was not good.",
+    observation: "Food too spicy.",
+    proof: "https://via.placeholder.com/150",
+    status: "Pending",
+    type: "Chefs",
+  },
+];
+
+const allTypes = ["Users", "Chefs", "Riders"];
+const allStatus = ["Pending", "Resolved"];
 
 export default function Complaints() {
-  const [activeTab, setActiveTab] = useState("Users");
-  const [view, setView] = useState("Pending");
+  // Filter checkboxes
+  const [typeFilter, setTypeFilter] = useState([...allTypes]);
+  const [statusFilter, setStatusFilter] = useState([...allStatus]);
+
+  // Main states
   const [complaints, setComplaints] = useState(dummyData);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [adminResponse, setAdminResponse] = useState("");
@@ -42,7 +115,10 @@ export default function Complaints() {
   const [bulkActionType, setBulkActionType] = useState(""); // "Resolved" or "Dismissed"
   const [bulkResponse, setBulkResponse] = useState("");
 
-  const filtered = complaints[activeTab].filter((c) => c.status === view);
+  // --- Filtering ---
+  const filtered = complaints.filter(
+    (c) => typeFilter.includes(c.type) && statusFilter.includes(c.status)
+  );
 
   // --- Row/Checkbox logic ---
   const handleSelect = (id) => {
@@ -65,19 +141,18 @@ export default function Complaints() {
       alert("Please enter a response for the action.");
       return;
     }
-    setComplaints((prev) => ({
-      ...prev,
-      [activeTab]: prev[activeTab].map((c) =>
+    setComplaints((prev) =>
+      prev.map((c) =>
         selectedComplaints.includes(c.id)
           ? {
               ...c,
-              status: "Resolved",
+              status: bulkActionType === "Resolved" ? "Resolved" : "Resolved",
               action: bulkActionType,
               response: bulkResponse,
             }
           : c
-      ),
-    }));
+      )
+    );
     setShowBulkModal(false);
     setBulkResponse("");
     setSelectedComplaints([]);
@@ -89,55 +164,73 @@ export default function Complaints() {
       alert("Please enter a reason for the action.");
       return;
     }
-    setComplaints((prev) => ({
-      ...prev,
-      [activeTab]: prev[activeTab].map((c) =>
+    setComplaints((prev) =>
+      prev.map((c) =>
         c.id === id
-          ? { ...c, status: "Resolved", action: actionType, response: adminResponse }
+          ? {
+              ...c,
+              status: actionType === "Resolved" ? "Resolved" : "Resolved",
+              action: actionType,
+              response: adminResponse,
+            }
           : c
-      ),
-    }));
+      )
+    );
     setSelectedComplaint(null);
     setAdminResponse("");
   };
 
+  // --- UI ---
   return (
     <div className="flex min-h-screen">
       {/* <Sidebar /> */}
       <div className="flex-1 p-6 bg-[#111] text-white">
-        <h2 className="text-2xl font-bold text-primary mb-4">Complaints - {activeTab}</h2>
-        {/* Tabs for Users, Chefs, Riders */}
-        <div className="mb-4 space-x-4">
-          {["Users", "Chefs", "Riders"].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => {
-                setActiveTab(cat);
-                setSelectedComplaints([]);
-              }}
-              className={`px-4 py-1 rounded ${activeTab === cat ? "bg-primary text-black" : "bg-gray-700"}`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-        {/* Tabs for Pending / Resolved */}
-        <div className="mb-4 space-x-4">
-          {["Pending", "Resolved"].map((status) => (
-            <button
-              key={status}
-              onClick={() => {
-                setView(status);
-                setSelectedComplaints([]);
-              }}
-              className={`px-4 py-1 rounded ${view === status ? "bg-primary text-black" : "bg-gray-700"}`}
-            >
-              {status}
-            </button>
-          ))}
+        <h2 className="text-2xl font-bold text-primary mb-4">Complaints</h2>
+        {/* Filter Checkboxes */}
+        <div className="mb-4 flex flex-wrap gap-8 items-center">
+          <div>
+            <span className="font-semibold mr-2">Type:</span>
+            {allTypes.map((cat) => (
+              <label key={cat} className="mr-4">
+                <input
+                  type="checkbox"
+                  checked={typeFilter.includes(cat)}
+                  onChange={() =>
+                    setTypeFilter((prev) =>
+                      prev.includes(cat)
+                        ? prev.filter((x) => x !== cat)
+                        : [...prev, cat]
+                    )
+                  }
+                  className="mr-1"
+                />
+                {cat}
+              </label>
+            ))}
+          </div>
+          <div>
+            <span className="font-semibold mr-2">Status:</span>
+            {allStatus.map((status) => (
+              <label key={status} className="mr-4">
+                <input
+                  type="checkbox"
+                  checked={statusFilter.includes(status)}
+                  onChange={() =>
+                    setStatusFilter((prev) =>
+                      prev.includes(status)
+                        ? prev.filter((x) => x !== status)
+                        : [...prev, status]
+                    )
+                  }
+                  className="mr-1"
+                />
+                {status}
+              </label>
+            ))}
+          </div>
         </div>
         {/* Bulk Action Buttons */}
-        {view === "Pending" && (
+        {statusFilter.includes("Pending") && (
           <div className="flex gap-4 mb-4">
             <button
               className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
@@ -155,12 +248,12 @@ export default function Complaints() {
             </button>
           </div>
         )}
-        {/* Complaints Table - Aligned and Clickable */}
+        {/* Complaints Table */}
         <div className="overflow-x-auto rounded-lg shadow bg-[#1F1F1F]">
           <table className="min-w-full">
             <thead>
               <tr>
-                {view === "Pending" && (
+                {statusFilter.includes("Pending") && (
                   <th className="w-10 text-center align-middle px-2 py-2">
                     <input
                       type="checkbox"
@@ -175,13 +268,14 @@ export default function Complaints() {
                 <th className="px-3 py-2 text-left align-middle">Ticket</th>
                 <th className="px-3 py-2 text-left align-middle">Complaintee</th>
                 <th className="px-3 py-2 text-left align-middle">Accused ID</th>
+                <th className="px-3 py-2 text-left align-middle">Type</th>
                 <th className="px-3 py-2 text-left align-middle">Status</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={view === "Pending" ? 5 : 4} className="text-center py-8 text-gray-400">
+                  <td colSpan={statusFilter.includes("Pending") ? 6 : 5} className="text-center py-8 text-gray-400">
                     No complaints to show.
                   </td>
                 </tr>
@@ -192,7 +286,7 @@ export default function Complaints() {
                     className="border-t border-[#222] hover:bg-[#232323] cursor-pointer"
                     onClick={() => setSelectedComplaint(comp)}
                   >
-                    {view === "Pending" && (
+                    {statusFilter.includes("Pending") && (
                       <td
                         className="w-10 text-center align-middle px-2 py-2"
                         onClick={e => e.stopPropagation()}
@@ -208,6 +302,7 @@ export default function Complaints() {
                     <td className="px-3 py-2 align-middle">{comp.ticket}</td>
                     <td className="px-3 py-2 align-middle">{comp.complaintee}</td>
                     <td className="px-3 py-2 align-middle">{comp.accusedId}</td>
+                    <td className="px-3 py-2 align-middle">{comp.type}</td>
                     <td className="px-3 py-2 align-middle">{comp.status}</td>
                   </tr>
                 ))
