@@ -28,14 +28,13 @@ export default function SuperUsers() {
   useEffect(() => {
     async function fetchAll() {
       const { data: users } = await supabase
-        .from("User_Details")
-        .select("id, name, status, suspended_until")
-        .limit(100);
+        .from("user_profiles")
+        .select("user_id, full_name, user_type, status, suspended_until");
 
       const merged = (users || []).map((u) => ({
-        id: u.id,
-        name: u.name,
-        type: "User",
+        id: u.user_id,
+        name: u.full_name,
+        type: u.user_type || "User",
         status: u.status ?? "active",
         suspended_until: u.suspended_until,
       }));
@@ -45,7 +44,6 @@ export default function SuperUsers() {
     fetchAll();
   }, [refresh]);
 
-  // Filtering/search
   const filtered = superUsers.filter((u) => {
     if (
       search &&
@@ -57,7 +55,6 @@ export default function SuperUsers() {
     return (u.status ?? "active") === statusFilter;
   });
 
-  // Status color
   const statusColor = (status) => {
     const s = typeof status === "string" ? status.toLowerCase() : "active";
     if (s === "banned") return "text-red-500";
@@ -66,29 +63,39 @@ export default function SuperUsers() {
     return "text-white";
   };
 
-  // Admin action
   const updateStatus = async (user, newStatus, suspendDays = null, reason = "") => {
     let updates = { status: newStatus };
     let duration = null;
+
     if (newStatus === "suspended" && suspendDays) {
       const now = new Date();
       const until = new Date(now.getTime() + Number(suspendDays) * 24 * 60 * 60 * 1000);
       updates.suspended_until = until.toISOString();
+      updates.suspension_reason = reason;
+      updates.ban_reason = null;
       duration = suspendDays;
+    } else if (newStatus === "banned") {
+      updates.suspended_until = null;
+      updates.ban_reason = reason;
+      updates.suspension_reason = null;
     } else {
       updates.suspended_until = null;
+      updates.suspension_reason = null;
+      updates.ban_reason = null;
     }
-    await supabase.from("User_Details").update(updates).eq("id", user.id);
+
+    await supabase.from("user_profiles").update(updates).eq("user_id", user.id);
+
     await logUserHistory({
       user_id: user.id,
       action: newStatus.charAt(0).toUpperCase() + newStatus.slice(1),
       reason,
       duration,
     });
+
     setRefresh((r) => !r);
   };
 
-  // Auto-reactivate if suspension expired
   useEffect(() => {
     async function autoReactivate() {
       for (const user of superUsers) {
@@ -97,9 +104,15 @@ export default function SuperUsers() {
           const until = new Date(user.suspended_until);
           if (now > until) {
             await supabase
-              .from("User_Details")
-              .update({ status: "active", suspended_until: null })
-              .eq("id", user.id);
+              .from("user_profiles")
+              .update({
+                status: "active",
+                suspended_until: null,
+                suspension_reason: null,
+                ban_reason: null,
+              })
+              .eq("user_id", user.id);
+
             await logUserHistory({
               user_id: user.id,
               action: "Auto-reactivated",
@@ -111,10 +124,8 @@ export default function SuperUsers() {
       }
     }
     autoReactivate();
-    // eslint-disable-next-line
   }, [superUsers]);
 
-  // Fetch action history when opening modal
   const openProfile = async (user) => {
     setSelected(user);
     const { data } = await supabase
@@ -172,7 +183,6 @@ export default function SuperUsers() {
           ))}
         </div>
 
-        {/* User Modal */}
         {selected && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-[#1F1F1F] rounded-lg p-6 w-[90%] max-w-lg relative">
@@ -192,14 +202,12 @@ export default function SuperUsers() {
                 )}
               </div>
               <div className="mt-4 flex gap-2">
-                {/* Chat always */}
                 <button
                   className="bg-primary flex-1 rounded px-4 py-2"
                   onClick={() => navigate(`/chat/${selected.id}`)}
                 >
                   Chat
                 </button>
-                {/* Ban if not banned */}
                 {selected.status !== "banned" && (
                   <button
                     className="bg-red-600 flex-1 rounded px-4 py-2"
@@ -215,7 +223,6 @@ export default function SuperUsers() {
                     Ban
                   </button>
                 )}
-                {/* Suspend if not banned/suspended */}
                 {selected.status !== "banned" && selected.status !== "suspended" && (
                   <button
                     className="bg-yellow-500 text-black flex-1 rounded px-4 py-2"
@@ -233,7 +240,6 @@ export default function SuperUsers() {
                   </button>
                 )}
               </div>
-              {/* Reactivate if not active */}
               {selected.status !== "active" && (
                 <button
                   className="mt-2 w-full bg-green-600 rounded px-4 py-2"
@@ -246,8 +252,6 @@ export default function SuperUsers() {
                   Reactivate
                 </button>
               )}
-
-              {/* Admin action history */}
               <div className="mt-6">
                 <h3 className="font-semibold mb-2 text-primary">Admin Action History</h3>
                 <ul className="max-h-40 overflow-y-auto divide-y divide-gray-800 text-xs">
