@@ -4,8 +4,8 @@ import { useState } from "react";
 export default function ChatPage() {
   const { id } = useParams(); // user ID passed in URL
   const [messages, setMessages] = useState([
-    { from: "admin", text: "Hello! How can I assist you?" },
-    { from: id, text: "I had an issue with the delivery." },
+    { from: "admin", text: "Hello! I am connecting in response to complaint U0193" },
+    { from: id, text: "Thank you, I had an issue with the rider..." },
   ]);
   const [newMsg, setNewMsg] = useState("");
 

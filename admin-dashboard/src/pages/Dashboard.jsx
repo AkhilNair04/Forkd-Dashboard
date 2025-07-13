@@ -6,14 +6,13 @@ import { supabase } from "../../supabaseClient";
 
 const COLORS = ["#F97316", "#10B981", "#3B82F6"];
 const flashQuotes = [
-  "📦 Orders surging today!",
-  "🚴‍♂️ Riders are active and delivering!",
-  "👨‍🍳 Chef ratings up 5% this week!",
-  "⚡ Platform is running smoothly!",
-  "📈 Sales showing an upward trend!",
+  "\u{1F4E6} Orders surging today!",
+  "\u{1F6B4}\u200D♂️ Riders are active and delivering!",
+  "\u{1F468}\u200D\u{1F373} Chef ratings up 5% this week!",
+  "\u26A1 Platform is running smoothly!",
+  "\u{1F4C8} Sales showing an upward trend!",
 ];
 
-// Utility: Persist previous stats in localStorage
 function getPrevStats() {
   try {
     const data = localStorage.getItem("dashboardPrevStats");
@@ -27,28 +26,22 @@ function setPrevStats(stats) {
 }
 
 export default function Dashboard() {
-  // State for active counts and user distribution
   const [counts, setCounts] = useState({
     riders: 0, users: 0, chefs: 0,
     prevRiders: 0, prevUsers: 0, prevChefs: 0
   });
-  const [userTypeData, setUserTypeData] = useState([
-    { name: "Users", value: 0 },
-    { name: "Chefs", value: 0 },
-    { name: "Riders", value: 0 },
-  ]);
+  const [userTypeData, setUserTypeData] = useState([]);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
-  // Fetch actual numbers from Supabase on mount
   useEffect(() => {
     async function fetchStats() {
       const prev = getPrevStats();
-      // Current stats
       const [{ count: userCount }, { count: chefCount }, { count: riderCount }] = await Promise.all([
-        supabase.from("User_Details").select("*", { count: "exact", head: true }),
-        supabase.from("Chef").select("*", { count: "exact", head: true }).eq("decision", "approved"),
+        supabase.from("user_profiles").select("*", { count: "exact", head: true }).eq("status", "active").eq("user_type", "customer"),
+        supabase.from("user_profiles").select("*", { count: "exact", head: true }).eq("status", "active").eq("user_type", "chef"),
         supabase.from("Rider_Details").select("*", { count: "exact", head: true }).eq("status", "approved"),
       ]);
+
       setCounts({
         riders: riderCount || 0,
         users: userCount || 0,
@@ -57,11 +50,13 @@ export default function Dashboard() {
         prevUsers: prev.users ?? (userCount || 0),
         prevChefs: prev.chefs ?? (chefCount || 0)
       });
+
       setUserTypeData([
         { name: "Users", value: userCount || 0 },
         { name: "Chefs", value: chefCount || 0 },
         { name: "Riders", value: riderCount || 0 },
       ]);
+
       setPrevStats({
         riders: riderCount || 0,
         users: userCount || 0,
@@ -71,7 +66,6 @@ export default function Dashboard() {
     fetchStats();
   }, []);
 
-  // Flash quote
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentQuoteIndex((prev) => (prev + 1) % flashQuotes.length);
@@ -79,7 +73,6 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Trends
   function getTrend(newVal, oldVal) {
     if (newVal > oldVal) return "up";
     if (newVal < oldVal) return "down";
@@ -119,7 +112,6 @@ export default function Dashboard() {
       <div className="flex-1 p-6">
         <h1 className="text-3xl font-bold text-primary mb-6">Dashboard Overview</h1>
 
-        {/* Flash Card */}
         <div className="bg-[#1F1F1F] p-4 rounded-xl mb-6 shadow flex justify-between items-center">
           <AnimatePresence mode="wait">
             <motion.div
@@ -142,7 +134,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
           {stats.map((item, index) => (
             <motion.div
@@ -163,10 +154,9 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* User Distribution Pie Chart */}
-        <div className="bg-white p-4 rounded-xl text-black">
+        <div className="bg-white p-4 rounded-xl text-black w-full max-w-xl mx-auto">
           <h3 className="mb-2 font-semibold">User Distribution</h3>
-          <ResponsiveContainer width="100%" height={250}>
+          <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
                 data={userTypeData}
@@ -174,8 +164,8 @@ export default function Dashboard() {
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
-                label
+                outerRadius={100}
+                label={({ name, value }) => `${name}: ${value}`}
               >
                 {userTypeData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
