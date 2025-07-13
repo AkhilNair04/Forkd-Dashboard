@@ -53,6 +53,10 @@ function App() {
           <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} /> {/* ✅ NEW CHAT ROUTE */}
           <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
           <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
+          <Route path="/rider-status" element={<PrivateRoute><RiderPages /></PrivateRoute>} />
+          <Route path="/order-status" element={<PrivateRoute><OrderStatus /></PrivateRoute>} />
+          <Route path="/delivery-tracking" element={<PrivateRoute><DeliveryTracking /></PrivateRoute>} />
+          <Route path="/rider-feedback" element={<PrivateRoute><RiderFeedback /></PrivateRoute>} />
         </Routes>
       </AppLayout>
     </Router>
