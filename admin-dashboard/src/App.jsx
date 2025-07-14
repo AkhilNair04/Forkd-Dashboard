@@ -1,14 +1,15 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-import Sidebar from "./components/Sidebar";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import ChefManagement from "./pages/Chef";
-import Rider from "./pages/Rider";
-import Users from "./pages/Users";
-import Complaints from "./pages/Complaints";
-import ChatPage from "./pages/ChatPage";
+import Sidebar from './components/Sidebar';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Chefs from './pages/Chefs';
+import Rider from './pages/Rider';
+import Users from './pages/Users';
+import Complaints from './pages/Complaints';
+import RiderStatus from "./pages/rider-status";
+import ChatPage from './pages/ChatPage'; // ✅ Added chat page import
 
 const PrivateRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem("adminLoggedIn") === "true";
@@ -50,7 +51,8 @@ function App() {
           <Route path="/riders" element={<PrivateRoute><Rider /></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
           <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
-          <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} />
+          <Route path="/rider-status" element={<PrivateRoute><RiderStatus /></PrivateRoute>} />
+          <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} /> {/* ✅ NEW CHAT ROUTE */}
           <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
           <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
           <Route path="/rider-status" element={<PrivateRoute><RiderPages /></PrivateRoute>} />
