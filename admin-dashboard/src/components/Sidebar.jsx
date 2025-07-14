@@ -5,12 +5,9 @@ import {
   ChefHat,
   Bike,
   AlertOctagon,
-  UtensilsCrossed,
-  ClipboardList,
-  CreditCard,
-  BarChart,
-  LogOut,
   UserCircle,
+  BarChart,  // Add any necessary icon
+  LogOut,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -28,22 +25,17 @@ export default function Sidebar() {
     { path: "/users", label: "Users", icon: <Users size={18} /> },
     { path: "/chefs", label: "Chefs", icon: <ChefHat size={18} /> },
     { path: "/riders", label: "Riders", icon: <Bike size={18} /> },
+    { path: "/rider-status", label: "Rider Status", icon: <BarChart size={18} /> },  
     { path: "/complaints", label: "Complaints", icon: <AlertOctagon size={18} /> },
-
-    // { path: "/orders", label: "Orders", icon: <ClipboardList size={18} /> },
-    // { path: "/dishes", label: "Dishes", icon: <UtensilsCrossed size={18} /> },
-    // { path: "/transactions", label: "Transactions", icon: <CreditCard size={18} /> },
-    // { path: "/analytics", label: "Analytics", icon: <BarChart size={18} /> },
   ];
 
   return (
     <aside className="w-64 bg-[#1E1E1E] text-white p-6 min-h-screen">
-      {/* Logo & Admin */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold text-primary mb-1">🍴 Fork’d Admin </h1>
         <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
           <UserCircle size={30} />
-        Admin Panel
+          Admin Panel
         </div>
       </div>
 
