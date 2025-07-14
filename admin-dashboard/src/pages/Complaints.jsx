@@ -1,8 +1,5 @@
 import { useState } from "react";
-// import Sidebar from "../components/Sidebar"; // Uncomment if you use Sidebar
-
 const dummyData = [
-  // Users complaints
   {
     id: 1,
     ticket: "U-001",

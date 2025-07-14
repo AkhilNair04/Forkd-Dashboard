@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Chefs from "./pages/Chef";          // ✅ use Chefs, not ChefManagement
+import Chefs from "./pages/Chef";      
 import Rider from "./pages/Rider";
 import Users from "./pages/Users";
 import Complaints from "./pages/Complaints";
 import RiderStatus from "./pages/rider-status";
-import ChatPage from "./pages/ChatPage";    // ✅ already added
+import ChatPage from "./pages/ChatPage";   
 
 
 const PrivateRoute = ({ children }) => {

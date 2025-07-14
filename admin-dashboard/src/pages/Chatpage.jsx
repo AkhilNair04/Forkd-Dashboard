@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useState } from "react";
 
 export default function ChatPage() {
-  const { id } = useParams(); // user ID passed in URL
+  const { id } = useParams(); 
   const [messages, setMessages] = useState([
     { from: "admin", text: "Hello! I am connecting in response to complaint U0193" },
     { from: id, text: "Thank you, I had an issue with the rider..." },
