@@ -1,24 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-
-// CHOOSE THIS BASED ON YOUR TABLE COLUMN: "status" or "decision"
-const STATUS_FIELD = "decision"; // <--- CHANGE if your column is 'status'!
-
-// Helper for logging to Chef_History
-async function logChefHistory({ chef_id, action, reason = "", duration = null }) {
-  const { error } = await supabase.from("Chef_History").insert({
-    chef_id,
-    action,
-    reason,
-    duration,
-    timestamp: new Date().toISOString()
-  });
-  if (error) {
-    alert("Chef_History insert error: " + error.message);
-    console.error(error);
-  }
-}
 
 export default function Chefs() {
   const [activeTab, setActiveTab] = useState("requests");
@@ -31,80 +14,96 @@ export default function Chefs() {
   const [showReasonPrompt, setShowReasonPrompt] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showActionModal, setShowActionModal] = useState(false);
-  const [actionType, setActionType] = useState(""); // "ban" | "suspend" | "reactivate"
+  const [actionType, setActionType] = useState("");
   const [actionReason, setActionReason] = useState("");
   const [suspendDuration, setSuspendDuration] = useState("");
   const [detailsModal, setDetailsModal] = useState(null);
   const [detailsHistory, setDetailsHistory] = useState([]);
   const [historyTab, setHistoryTab] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Helper to build status/decision update object
-  const statusObj = (value, extra = {}) => ({ [STATUS_FIELD]: value, ...extra });
+  const navigate = useNavigate();
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
+    async function fetchChefs() {
       const { data, error } = await supabase.from("Chef").select("*");
-      if (error) {
-        alert("Supabase fetch error: " + error.message);
-        setLoading(false); return;
-      }
-      setRequests(data.filter(c => !c[STATUS_FIELD] || c[STATUS_FIELD].toLowerCase() === "pending"));
-      setApproved(data.filter(c => c[STATUS_FIELD]?.toLowerCase() === "approved"));
-      setDenied(data.filter(c => ["rejected", "denied"].includes((c[STATUS_FIELD] || "").toLowerCase())));
-      setSuspended(data.filter(c => c[STATUS_FIELD]?.toLowerCase() === "suspended"));
-      setBanned(data.filter(c => c[STATUS_FIELD]?.toLowerCase() === "banned"));
-      const { data: history } = await supabase
-        .from("Chef_History")
-        .select("*")
-        .order('timestamp', { ascending: false });
+      if (error) return console.error("Supabase error:", error);
+
+      setRequests(data.filter(c => (c.decision || "pending").toLowerCase() === "pending"));
+      setApproved(data.filter(c => (c.decision || "").toLowerCase() === "approved"));
+      setDenied(data.filter(c => ["rejected", "denied"].includes((c.decision || "").toLowerCase())));
+      setSuspended(data.filter(c => (c.decision || "").toLowerCase() === "suspended"));
+      setBanned(data.filter(c => (c.decision || "").toLowerCase() === "banned"));
+
+      const { data: history } = await supabase.from("Chef_History").select("*").order('timestamp', { ascending: false });
       setHistoryTab(history || []);
-      setLoading(false);
-    })();
+    }
+    fetchChefs();
   }, []);
 
-  // Approve selected
   const handleBulkApprove = async () => {
-    setLoading(true);
     for (let id of selectedChefs) {
-      const { error } = await supabase
+      await supabase
         .from("Chef")
-        .update(statusObj("approved", { is_verified: true }))
+        .update({ 
+          decision: "approved", 
+          is_verified: true,
+          suspension_reason: null,
+          suspension_until: null,
+          ban_reason: null
+        })
         .eq("id", id);
-      if (error) alert("Supabase approve error: " + error.message);
-      await logChefHistory({ chef_id: id, action: "Approved" });
+      await supabase.from("Chef_History").insert({
+        chef_id: id, 
+        action: "Approved", 
+        reason: "",
+        timestamp: new Date().toISOString()
+      });
     }
     window.location.reload();
   };
 
-  // Reject selected (reason modal first)
   const handleBulkReject = () => setShowReasonPrompt(true);
 
   const handleSubmitBulkReject = async () => {
-    setLoading(true);
     for (let id of selectedChefs) {
-      const { error } = await supabase
+      await supabase
         .from("Chef")
-        .update(statusObj("rejected", { is_verified: false, rejection_reason: rejectionReason }))
+        .update({
+          decision: "rejected",
+          is_verified: false,
+          rejection_reason: rejectionReason,
+          suspension_reason: null,
+          suspension_until: null,
+          ban_reason: null
+        })
         .eq("id", id);
-      if (error) alert("Supabase reject error: " + error.message);
-      await logChefHistory({ chef_id: id, action: "Rejected", reason: rejectionReason });
+      await supabase.from("Chef_History").insert({
+        chef_id: id, 
+        action: "Rejected", 
+        reason: rejectionReason,
+        timestamp: new Date().toISOString()
+      });
     }
     setShowReasonPrompt(false);
     setRejectionReason("");
     window.location.reload();
   };
 
-  // Table select helpers
-  const handleSelect = (id) => setSelectedChefs((prev) =>
-    prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]
-  );
+  const handleSelect = (id) => {
+    setSelectedChefs((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]
+    );
+  };
+
   const handleSelectAll = () => {
     const list = getList().map((c) => c.id);
     setSelectedChefs(selectedChefs.length === list.length ? [] : list);
   };
-  const onTabChange = (tab) => { setActiveTab(tab); setSelectedChefs([]); };
+
+  const onTabChange = (tab) => {
+    setActiveTab(tab);
+    setSelectedChefs([]);
+  };
+
   const getList = () => {
     if (activeTab === "requests") return requests;
     if (activeTab === "approved") return approved;
@@ -114,7 +113,6 @@ export default function Chefs() {
     return denied;
   };
 
-  // Ban/Suspend/Reactivate
   const handleRowAction = (chef, type) => {
     setSelectedChefs([chef.id]);
     setActionType(type);
@@ -122,50 +120,62 @@ export default function Chefs() {
     setSuspendDuration("");
     setShowActionModal(true);
   };
+
   const handleActionConfirm = async () => {
-    setLoading(true);
     const id = selectedChefs[0];
-    let error = null;
     if (actionType === "ban") {
-      const { error: updateError } = await supabase
+      await supabase
         .from("Chef")
-        .update(statusObj("banned", { is_verified: false, ban_reason: actionReason }))
+        .update({ 
+          decision: "banned", 
+          is_verified: false, 
+          ban_reason: actionReason,
+          suspension_reason: null,
+          suspension_until: null
+        })
         .eq("id", id);
-      error = updateError;
-      await logChefHistory({ chef_id: id, action: "Banned", reason: actionReason });
+      await supabase.from("Chef_History").insert({
+        chef_id: id, 
+        action: "Banned", 
+        reason: actionReason,
+        timestamp: new Date().toISOString()
+      });
     } else if (actionType === "suspend") {
       const until = dayjs().add(Number(suspendDuration), "day").toISOString();
-      const { error: updateError } = await supabase
+      await supabase
         .from("Chef")
-        .update(statusObj("suspended", {
+        .update({
+          decision: "suspended",
           is_verified: false,
           suspension_reason: actionReason,
           suspension_until: until,
-        }))
+          ban_reason: null
+        })
         .eq("id", id);
-      error = updateError;
-      await logChefHistory({
+      await supabase.from("Chef_History").insert({
         chef_id: id,
         action: `Suspended ${suspendDuration}d`,
         reason: actionReason,
-        duration: suspendDuration
+        duration: suspendDuration,
+        timestamp: new Date().toISOString()
       });
     } else if (actionType === "reactivate") {
-      const { error: updateError } = await supabase
+      await supabase
         .from("Chef")
-        .update(statusObj("approved", {
+        .update({
+          decision: "approved",
           is_verified: true,
           suspension_reason: null,
           suspension_until: null,
-          ban_reason: null,
-        }))
+          ban_reason: null
+        })
         .eq("id", id);
-      error = updateError;
-      await logChefHistory({ chef_id: id, action: "Reactivated" });
-    }
-    if (error) {
-      alert("Supabase error: " + error.message);
-      console.error(error);
+      await supabase.from("Chef_History").insert({
+        chef_id: id, 
+        action: "Reactivated", 
+        reason: "",
+        timestamp: new Date().toISOString()
+      });
     }
     setShowActionModal(false);
     setSelectedChefs([]);
@@ -175,32 +185,32 @@ export default function Chefs() {
     window.location.reload();
   };
 
-  // Return to requests handler
   const handleReturnToRequests = async (chef) => {
-    setLoading(true);
-    const { error } = await supabase.from("Chef").update(statusObj("pending", {
+    await supabase.from("Chef").update({
+      decision: "pending",
       is_verified: false,
       rejection_reason: null,
       ban_reason: null,
       suspension_reason: null,
-      suspension_until: null,
-      aadhar: null,
-      fssai_licence_img: null,
-      pcc_certificate: null,
-    })).eq("id", chef.id);
-    await logChefHistory({ chef_id: chef.id, action: "Returned to Requests" });
-    if (error) {
-      alert("Supabase return error: " + error.message);
-      console.error(error);
-    }
+      suspension_until: null
+    }).eq("id", chef.id);
+    await supabase.from("Chef_History").insert({
+      chef_id: chef.id, 
+      action: "Returned to Requests", 
+      reason: "",
+      timestamp: new Date().toISOString()
+    });
     window.location.reload();
   };
 
-  // Chef details modal
   const handleRowClick = async (chef) => {
     setDetailsModal(chef);
     const { data } = await supabase.from("Chef_History").select("*").eq("chef_id", chef.id).order('timestamp', { ascending: false });
     setDetailsHistory(data || []);
+  };
+
+  const handleChatNavigation = (chefId) => {
+    navigate(`/chat/${chefId}`);
   };
 
   const tabList = [
@@ -227,12 +237,6 @@ export default function Chefs() {
             >{tab.label}</button>
           ))}
         </div>
-
-        {loading && (
-          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-            <div className="text-white text-lg font-semibold">Loading...</div>
-          </div>
-        )}
 
         {activeTab === "requests" && (
           <div className="flex gap-4 mb-4">
@@ -269,11 +273,16 @@ export default function Chefs() {
                   )}
                   {activeTab === "requests" && <th className="px-3 py-2 text-left align-middle">Profile Pic</th>}
                   <th className="px-3 py-2 text-left align-middle">Name</th>
-                  <th className="px-3 py-2 text-left align-middle">Aadhar No.</th>
-                  <th className="px-3 py-2 text-left align-middle">FSSAI License No.</th>
-                  {activeTab === "requests" && <th className="px-3 py-2 text-left align-middle">Aadhar</th>}
-                  {activeTab === "requests" && <th className="px-3 py-2 text-left align-middle">FSSAI License</th>}
+                  <th className="px-3 py-2 text-left align-middle">FSSAI Number</th>
                   {activeTab === "requests" && <th className="px-3 py-2 text-left align-middle">PCC Certificate</th>}
+                  {activeTab === "requests" && <th className="px-3 py-2 text-left align-middle">FSSAI License</th>}
+                  <th className="px-3 py-2 text-left align-middle">Status</th>
+                  {activeTab === "denied" && (
+                    <th className="px-3 py-2 text-left align-middle">Rejection Reason</th>
+                  )}
+                  {activeTab === "suspended" && (
+                    <th className="px-3 py-2 text-left align-middle">Suspended Until</th>
+                  )}
                   {(activeTab !== "requests" && activeTab !== "history") && <th className="px-3 py-2 text-left align-middle">Return</th>}
                   {(activeTab === "approved" ||
                     activeTab === "suspended" ||
@@ -303,41 +312,82 @@ export default function Chefs() {
                         </td>
                       )}
                       {activeTab === "requests" && (
-                        <td className="px-3 py-2 align-middle">{chef.profile_pic_uid ? <img src={chef.profile_pic_uid} className="w-10 h-10 rounded-full" alt="" /> : "-"}</td>
+                        <td className="px-3 py-2 align-middle">
+                          {chef.avatar_url ? (
+                            <img src={chef.avatar_url} className="w-10 h-10 rounded-full" alt="" />
+                          ) : "-"}
+                        </td>
                       )}
-                      <td className="px-3 py-2 align-middle cursor-pointer" onClick={() => handleRowClick(chef)}>{chef.name || "-"}</td>
-                      <td className="px-3 py-2 align-middle">{chef.aadhar_number || "-"}</td>
+                      <td className="px-3 py-2 align-middle cursor-pointer" onClick={() => handleRowClick(chef)}>
+                        {chef.name || "-"}
+                      </td>
                       <td className="px-3 py-2 align-middle">{chef.fssai_number || "-"}</td>
                       {activeTab === "requests" && (
-                        <>
-                          <td className="px-3 py-2 align-middle">{chef.aadhar ? <img src={chef.aadhar} className="w-16 h-10 rounded" alt="" /> : "-"}</td>
-                          <td className="px-3 py-2 align-middle">{chef.fssai_licence_img ? <img src={chef.fssai_licence_img} className="w-16 h-10 rounded" alt="" /> : "-"}</td>
-                          <td className="px-3 py-2 align-middle">{chef.pcc_certificate ? <img src={chef.pcc_certificate} className="w-16 h-10 rounded" alt="" /> : "-"}</td>
-                        </>
+                        <td className="px-3 py-2 align-middle">
+                          {chef.pcc_certificate ? (
+                            <img src={chef.pcc_certificate} className="w-16 h-10 rounded" alt="" />
+                          ) : "-"}
+                        </td>
+                      )}
+                      {activeTab === "requests" && (
+                        <td className="px-3 py-2 align-middle">
+                          {chef.fssai_license_img ? (
+                            <img src={chef.fssai_license_img} className="w-16 h-10 rounded" alt="" />
+                          ) : "-"}
+                        </td>
+                      )}
+                      <td className="px-3 py-2 align-middle">{chef.decision || "-"}</td>
+                      {activeTab === "denied" && (
+                        <td className="px-3 py-2 align-middle text-red-400">
+                          {chef.rejection_reason || "-"}
+                        </td>
+                      )}
+                      {activeTab === "suspended" && (
+                        <td className="px-3 py-2 align-middle text-yellow-400">
+                          {chef.suspension_until ? dayjs(chef.suspension_until).format("DD MMM YYYY") : "-"}
+                        </td>
                       )}
                       {(activeTab !== "requests" && activeTab !== "history") && (
                         <td className="px-3 py-2 align-middle">
                           <button
                             className="bg-orange-500 hover:bg-orange-600 px-2 py-1 rounded text-xs"
                             onClick={() => handleReturnToRequests(chef)}
-                          >Return</button>
+                          >
+                            Return
+                          </button>
                         </td>
                       )}
                       {(activeTab === "approved" || activeTab === "suspended" || activeTab === "banned") && (
                         <td className="px-3 py-2 flex flex-wrap gap-2 items-center align-middle min-w-[180px]">
-                          {chef[STATUS_FIELD]?.toLowerCase() !== "banned" && (
-                            <button onClick={() => handleRowAction(chef, "ban")}
-                              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-sm">Ban</button>
+                          {chef.decision !== "banned" && (
+                            <button 
+                              onClick={() => handleRowAction(chef, "ban")}
+                              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-sm"
+                            >
+                              Ban
+                            </button>
                           )}
-                          {chef[STATUS_FIELD]?.toLowerCase() !== "suspended" && (
-                            <button onClick={() => handleRowAction(chef, "suspend")}
-                              className="bg-yellow-400 hover:bg-yellow-500 text-black px-2 py-1 rounded text-sm">Suspend</button>
+                          {chef.decision !== "suspended" && (
+                            <button 
+                              onClick={() => handleRowAction(chef, "suspend")}
+                              className="bg-yellow-400 hover:bg-yellow-500 text-black px-2 py-1 rounded text-sm"
+                            >
+                              Suspend
+                            </button>
                           )}
-                          <button onClick={() => handleRowClick(chef)}
-                            className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-sm">Chat</button>
-                          {(chef[STATUS_FIELD]?.toLowerCase() === "banned" || chef[STATUS_FIELD]?.toLowerCase() === "suspended") && (
-                            <button onClick={() => handleRowAction(chef, "reactivate")}
-                              className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-sm">Reactivate</button>
+                          <button 
+                            onClick={() => handleChatNavigation(chef.id)}
+                            className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-sm"
+                          >
+                            Chat
+                          </button>
+                          {(chef.decision === "banned" || chef.decision === "suspended") && (
+                            <button 
+                              onClick={() => handleRowAction(chef, "reactivate")}
+                              className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-sm"
+                            >
+                              Reactivate
+                            </button>
                           )}
                         </td>
                       )}
@@ -424,15 +474,31 @@ export default function Chefs() {
                 {actionType === "reactivate" && "Reactivate Chef"}
               </h3>
               {(actionType === "ban" || actionType === "suspend") && (
-                <textarea value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Enter reason..." className="w-full p-3 rounded bg-gray-800 text-white resize-none focus:outline-none mb-3" rows={3} />
+                <textarea 
+                  value={actionReason} 
+                  onChange={e => setActionReason(e.target.value)} 
+                  placeholder="Enter reason..." 
+                  className="w-full p-3 rounded bg-gray-800 text-white resize-none focus:outline-none mb-3" 
+                  rows={3} 
+                />
               )}
               {actionType === "suspend" && (
-                <input type="number" value={suspendDuration} min={1} onChange={e => setSuspendDuration(e.target.value)} placeholder="Suspension duration (days)" className="w-full p-3 rounded bg-gray-800 text-white mb-3" />
+                <input 
+                  type="number" 
+                  value={suspendDuration} 
+                  min={1} 
+                  onChange={e => setSuspendDuration(e.target.value)} 
+                  placeholder="Suspension duration (days)" 
+                  className="w-full p-3 rounded bg-gray-800 text-white mb-3" 
+                />
               )}
-              <button className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
+              <button 
+                className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
                 onClick={handleActionConfirm}
                 disabled={(actionType === "ban" && !actionReason.trim()) || (actionType === "suspend" && (!actionReason.trim() || !suspendDuration))}
-              >Confirm</button>
+              >
+                Confirm
+              </button>
             </div>
           </div>
         )}
@@ -444,47 +510,55 @@ export default function Chefs() {
               <button className="absolute top-2 right-3 text-gray-400 hover:text-white text-xl" onClick={() => setDetailsModal(null)}>✕</button>
               <h2 className="text-2xl font-bold mb-2">{detailsModal.name}'s Profile</h2>
               <div className="flex gap-4 mb-2">
-                {detailsModal.profile_pic_uid ? (
-                  <img src={detailsModal.profile_pic_uid} className="w-16 h-16 rounded-full" />
+                {detailsModal.avatar_url ? (
+                  <img src={detailsModal.avatar_url} className="w-16 h-16 rounded-full" alt="Profile" />
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">-</div>
                 )}
                 <div>
-                  <div className="font-bold">Aadhar No:</div>
-                  <div>{detailsModal.aadhar_number || "-"}</div>
-                  <div className="font-bold">FSSAI License No:</div>
+                  <div className="font-bold">FSSAI Number:</div>
                   <div>{detailsModal.fssai_number || "-"}</div>
                   <div className="font-bold">Status:</div>
-                  <div>{detailsModal[STATUS_FIELD] || "-"}</div>
+                  <div>{detailsModal.decision || "-"}</div>
+                  {detailsModal.decision === "suspended" && (
+                    <>
+                      <div className="font-bold">Suspended Until:</div>
+                      <div>{dayjs(detailsModal.suspension_until).format("DD MMM YYYY")}</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex gap-4 mb-4">
                 <div>
-                  <div className="font-bold">Aadhar:</div>
-                  {detailsModal.aadhar ? (
-                    <img src={detailsModal.aadhar} className="w-32 h-20 rounded mb-2" />
-                  ) : "-"}
-                  <div className="font-bold">FSSAI License:</div>
-                  {detailsModal.fssai_licence_img ? (
-                    <img src={detailsModal.fssai_licence_img} className="w-32 h-20 rounded" />
-                  ) : "-"}
                   <div className="font-bold">PCC Certificate:</div>
                   {detailsModal.pcc_certificate ? (
-                    <img src={detailsModal.pcc_certificate} className="w-32 h-20 rounded" />
+                    <img src={detailsModal.pcc_certificate} className="w-32 h-20 rounded mb-2" alt="PCC" />
+                  ) : "-"}
+                  <div className="font-bold">FSSAI License:</div>
+                  {detailsModal.fssai_license_img ? (
+                    <img src={detailsModal.fssai_license_img} className="w-32 h-20 rounded" alt="FSSAI" />
                   ) : "-"}
                 </div>
               </div>
               <hr className="my-2 border-gray-700" />
               <div>
-                <h3 className="font-semibold mb-2">Mock Chat (not functional):</h3>
-                <div className="bg-[#181818] rounded p-2 mb-2 h-32 overflow-y-auto text-gray-400">Chat with this chef will appear here.</div>
+                <h3 className="font-semibold mb-2">Chat:</h3>
+                <button
+                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded mb-2"
+                  onClick={() => handleChatNavigation(detailsModal.id)}
+                >
+                  Open Chat
+                </button>
               </div>
               <hr className="my-2 border-gray-700" />
               <div>
                 <h3 className="font-semibold mb-2">Action History:</h3>
                 <ul className="max-h-32 overflow-y-auto">
                   {detailsHistory.length > 0 ? detailsHistory.map(h => (
-                    <li key={h.id} className="border-b border-[#444] py-1 text-xs">{h.action} - {h.reason} <span className="text-gray-500">({dayjs(h.timestamp).format('DD MMM YYYY HH:mm')})</span></li>
+                    <li key={h.id} className="border-b border-[#444] py-1 text-xs">
+                      {h.action} - {h.reason} 
+                      <span className="text-gray-500"> ({dayjs(h.timestamp).format('DD MMM YYYY HH:mm')})</span>
+                    </li>
                   )) : <li className="text-gray-400">No actions found.</li>}
                 </ul>
               </div>
