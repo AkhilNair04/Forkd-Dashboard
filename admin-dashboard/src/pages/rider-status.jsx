@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../../supabaseClient"; // Ensure you're importing supabase client
+import { supabase } from "../../supabaseClient";
 
 // Predefined statuses for delivery notes
 const allStatus = ["open", "ongoing", "delivered"];

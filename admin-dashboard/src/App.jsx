@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Chefs from './pages/Chefs';
+import Chefs from './pages/Chef';
 import Rider from './pages/Rider';
 import Users from './pages/Users';
 import Complaints from './pages/Complaints';
@@ -55,7 +55,6 @@ function App() {
           <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} /> {/* ✅ NEW CHAT ROUTE */}
           <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
           <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
-          <Route path="/rider-status" element={<PrivateRoute><RiderPages /></PrivateRoute>} />
           <Route path="/order-status" element={<PrivateRoute><OrderStatus /></PrivateRoute>} />
           <Route path="/delivery-tracking" element={<PrivateRoute><DeliveryTracking /></PrivateRoute>} />
           <Route path="/rider-feedback" element={<PrivateRoute><RiderFeedback /></PrivateRoute>} />
