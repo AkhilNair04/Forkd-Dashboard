@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-import Sidebar from './components/Sidebar';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Chefs from './pages/Chef';
-import Rider from './pages/Rider';
-import Users from './pages/Users';
-import Complaints from './pages/Complaints';
+import Sidebar from "./components/Sidebar";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Chefs from "./pages/Chef";          // ✅ use Chefs, not ChefManagement
+import Rider from "./pages/Rider";
+import Users from "./pages/Users";
+import Complaints from "./pages/Complaints";
 import RiderStatus from "./pages/rider-status";
-import ChatPage from './pages/ChatPage'; // ✅ Added chat page import
+import ChatPage from "./pages/ChatPage";    // ✅ already added
+
 
 const PrivateRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem("adminLoggedIn") === "true";
@@ -29,8 +30,8 @@ function AppLayout({ children }) {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() =>
-    localStorage.getItem("adminLoggedIn") === "true"
+  const [isLoggedIn, setIsLoggedIn] = useState(
+    () => localStorage.getItem("adminLoggedIn") === "true"
   );
 
   useEffect(() => {
@@ -45,19 +46,83 @@ function App() {
     <Router>
       <AppLayout>
         <Routes>
-          <Route path="/login" element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />} />
-          <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/chefs" element={<PrivateRoute><ChefManagement /></PrivateRoute>} />
-          <Route path="/riders" element={<PrivateRoute><Rider /></PrivateRoute>} />
-          <Route path="/users" element={<PrivateRoute><Users /></PrivateRoute>} />
-          <Route path="/complaints" element={<PrivateRoute><Complaints /></PrivateRoute>} />
-          <Route path="/rider-status" element={<PrivateRoute><RiderStatus /></PrivateRoute>} />
-          <Route path="/chat/:id" element={<PrivateRoute><ChatPage /></PrivateRoute>} /> {/* ✅ NEW CHAT ROUTE */}
-          <Route path="/" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
-          <Route path="*" element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />} />
-          <Route path="/order-status" element={<PrivateRoute><OrderStatus /></PrivateRoute>} />
-          <Route path="/delivery-tracking" element={<PrivateRoute><DeliveryTracking /></PrivateRoute>} />
-          <Route path="/rider-feedback" element={<PrivateRoute><RiderFeedback /></PrivateRoute>} />
+          {/* Auth */}
+          <Route
+            path="/login"
+            element={isLoggedIn ? <Navigate to="/dashboard" replace /> : <Login />}
+          />
+
+          {/* Dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Core pages */}
+          <Route
+            path="/chefs"
+            element={
+              <PrivateRoute>
+                <Chefs />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/riders"
+            element={
+              <PrivateRoute>
+                <Rider />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <PrivateRoute>
+                <Users />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/complaints"
+            element={
+              <PrivateRoute>
+                <Complaints />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/rider-status"
+            element={
+              <PrivateRoute>
+                <RiderStatus />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Chat */}
+          <Route
+            path="/chat/:id"
+            element={
+              <PrivateRoute>
+                <ChatPage />
+              </PrivateRoute>
+            }
+          />
+
+          {/* Catch‑alls */}
+          <Route
+            path="/"
+            element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />}
+          />
+          <Route
+            path="*"
+            element={<Navigate to={isLoggedIn ? "/dashboard" : "/login"} replace />}
+          />
         </Routes>
       </AppLayout>
     </Router>
