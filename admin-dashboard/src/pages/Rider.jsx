@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
 
 export default function Riders() {
@@ -19,6 +20,7 @@ export default function Riders() {
   const [detailsModal, setDetailsModal] = useState(null);
   const [detailsHistory, setDetailsHistory] = useState([]);
   const [historyTab, setHistoryTab] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     async function fetchRiders() {
@@ -49,7 +51,10 @@ export default function Riders() {
         })
         .eq("id", id);
       await supabase.from("Rider_History").insert({
-        rider_id: id, action: "Approved", reason: "",
+        rider_id: id, 
+        action: "Approved", 
+        reason: "",
+        timestamp: new Date().toISOString()
       });
     }
     window.location.reload();
@@ -71,7 +76,10 @@ export default function Riders() {
         })
         .eq("id", id);
       await supabase.from("Rider_History").insert({
-        rider_id: id, action: "Denied", reason: rejectionReason,
+        rider_id: id, 
+        action: "Denied", 
+        reason: rejectionReason,
+        timestamp: new Date().toISOString()
       });
     }
     setShowReasonPrompt(false);
@@ -113,15 +121,25 @@ export default function Riders() {
     setSuspendDuration("");
     setShowActionModal(true);
   };
+
   const handleActionConfirm = async () => {
     const id = selectedRiders[0];
     if (actionType === "ban") {
       await supabase
         .from("Rider_Details")
-        .update({ status: "banned", is_active: false, ban_reason: actionReason })
+        .update({ 
+          status: "banned", 
+          is_active: false, 
+          ban_reason: actionReason,
+          suspension_reason: null,
+          suspension_until: null
+        })
         .eq("id", id);
       await supabase.from("Rider_History").insert({
-        rider_id: id, action: "Banned", reason: actionReason,
+        rider_id: id, 
+        action: "Banned", 
+        reason: actionReason,
+        timestamp: new Date().toISOString()
       });
     } else if (actionType === "suspend") {
       const until = dayjs().add(Number(suspendDuration), "day").toISOString();
@@ -132,13 +150,15 @@ export default function Riders() {
           is_active: false,
           suspension_reason: actionReason,
           suspension_until: until,
+          ban_reason: null
         })
         .eq("id", id);
       await supabase.from("Rider_History").insert({
         rider_id: id,
         action: `Suspended ${suspendDuration}d`,
         reason: actionReason,
-        duration: suspendDuration
+        duration: suspendDuration,
+        timestamp: new Date().toISOString()
       });
     } else if (actionType === "reactivate") {
       await supabase
@@ -152,7 +172,10 @@ export default function Riders() {
         })
         .eq("id", id);
       await supabase.from("Rider_History").insert({
-        rider_id: id, action: "Reactivated", reason: "",
+        rider_id: id, 
+        action: "Reactivated", 
+        reason: "",
+        timestamp: new Date().toISOString()
       });
     }
     setShowActionModal(false);
@@ -175,7 +198,10 @@ export default function Riders() {
       delivery_status: null
     }).eq("id", rider.id);
     await supabase.from("Rider_History").insert({
-      rider_id: rider.id, action: "Returned to Requests", reason: ""
+      rider_id: rider.id, 
+      action: "Returned to Requests", 
+      reason: "",
+      timestamp: new Date().toISOString()
     });
     window.location.reload();
   };
@@ -185,6 +211,11 @@ export default function Riders() {
     setDetailsModal(rider);
     const { data } = await supabase.from("Rider_History").select("*").eq("rider_id", rider.id).order('timestamp', { ascending: false });
     setDetailsHistory(data || []);
+  };
+
+  // Chat navigation
+  const handleChatNavigation = (riderId) => {
+    navigate(`/chat/${riderId}`);
   };
 
   const tabList = [
@@ -255,6 +286,9 @@ export default function Riders() {
                   {activeTab === "denied" && (
                     <th className="px-3 py-2 text-left align-middle">Rejection Reason</th>
                   )}
+                  {activeTab === "suspended" && (
+                    <th className="px-3 py-2 text-left align-middle">Suspended Until</th>
+                  )}
                   {(activeTab !== "requests" && activeTab !== "history") && <th className="px-3 py-2 text-left align-middle">Return</th>}
                   {(activeTab === "approved" ||
                     activeTab === "suspended" ||
@@ -284,44 +318,83 @@ export default function Riders() {
                         </td>
                       )}
                       {activeTab === "requests" && (
-                        <td className="px-3 py-2 align-middle">{rider.profile_pic_uid ? <img src={rider.profile_pic_uid} className="w-10 h-10 rounded-full" alt="" /> : "-"}</td>
+                        <td className="px-3 py-2 align-middle">
+                          {rider.profile_pic_uid ? (
+                            <img src={rider.profile_pic_uid} className="w-10 h-10 rounded-full" alt="" />
+                          ) : "-"}
+                        </td>
                       )}
-                      <td className="px-3 py-2 align-middle cursor-pointer" onClick={() => handleRowClick(rider)}>{rider.name || "-"}</td>
+                      <td className="px-3 py-2 align-middle cursor-pointer" onClick={() => handleRowClick(rider)}>
+                        {rider.name || "-"}
+                      </td>
                       <td className="px-3 py-2 align-middle">{rider.aadhar || "-"}</td>
                       {activeTab === "requests" && (
-                        <td className="px-3 py-2 align-middle">{rider.aadhar_img ? <img src={rider.aadhar_img} className="w-16 h-10 rounded" alt="" /> : "-"}</td>
+                        <td className="px-3 py-2 align-middle">
+                          {rider.aadhar_img ? (
+                            <img src={rider.aadhar_img} className="w-16 h-10 rounded" alt="" />
+                          ) : "-"}
+                        </td>
                       )}
                       <td className="px-3 py-2 align-middle">{rider.license_number || "-"}</td>
                       {activeTab === "requests" && (
-                        <td className="px-3 py-2 align-middle">{rider.license_image ? <img src={rider.license_image} className="w-16 h-10 rounded" alt="" /> : "-"}</td>
+                        <td className="px-3 py-2 align-middle">
+                          {rider.license_image ? (
+                            <img src={rider.license_image} className="w-16 h-10 rounded" alt="" />
+                          ) : "-"}
+                        </td>
                       )}
                       <td className="px-3 py-2 align-middle">{rider.status || "-"}</td>
                       {activeTab === "denied" && (
-                        <td className="px-3 py-2 align-middle text-red-400">{rider.rejection_reason || "-"}</td>
+                        <td className="px-3 py-2 align-middle text-red-400">
+                          {rider.rejection_reason || "-"}
+                        </td>
+                      )}
+                      {activeTab === "suspended" && (
+                        <td className="px-3 py-2 align-middle text-yellow-400">
+                          {rider.suspension_until ? dayjs(rider.suspension_until).format("DD MMM YYYY") : "-"}
+                        </td>
                       )}
                       {(activeTab !== "requests" && activeTab !== "history") && (
                         <td className="px-3 py-2 align-middle">
                           <button
                             className="bg-orange-500 hover:bg-orange-600 px-2 py-1 rounded text-xs"
                             onClick={() => handleReturnToRequests(rider)}
-                          >Return</button>
+                          >
+                            Return
+                          </button>
                         </td>
                       )}
                       {(activeTab === "approved" || activeTab === "suspended" || activeTab === "banned") && (
                         <td className="px-3 py-2 flex flex-wrap gap-2 items-center align-middle min-w-[180px]">
                           {rider.status !== "banned" && (
-                            <button onClick={() => handleRowAction(rider, "ban")}
-                              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-sm">Ban</button>
+                            <button 
+                              onClick={() => handleRowAction(rider, "ban")}
+                              className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-sm"
+                            >
+                              Ban
+                            </button>
                           )}
                           {rider.status !== "suspended" && (
-                            <button onClick={() => handleRowAction(rider, "suspend")}
-                              className="bg-yellow-400 hover:bg-yellow-500 text-black px-2 py-1 rounded text-sm">Suspend</button>
+                            <button 
+                              onClick={() => handleRowAction(rider, "suspend")}
+                              className="bg-yellow-400 hover:bg-yellow-500 text-black px-2 py-1 rounded text-sm"
+                            >
+                              Suspend
+                            </button>
                           )}
-                          <button onClick={() => handleRowClick(rider)}
-                            className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-sm">Chat</button>
+                          <button 
+                            onClick={() => handleChatNavigation(rider.id)}
+                            className="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-sm"
+                          >
+                            Chat
+                          </button>
                           {(rider.status === "banned" || rider.status === "suspended") && (
-                            <button onClick={() => handleRowAction(rider, "reactivate")}
-                              className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-sm">Reactivate</button>
+                            <button 
+                              onClick={() => handleRowAction(rider, "reactivate")}
+                              className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-sm"
+                            >
+                              Reactivate
+                            </button>
                           )}
                         </td>
                       )}
@@ -408,15 +481,31 @@ export default function Riders() {
                 {actionType === "reactivate" && "Reactivate Rider"}
               </h3>
               {(actionType === "ban" || actionType === "suspend") && (
-                <textarea value={actionReason} onChange={e => setActionReason(e.target.value)} placeholder="Enter reason..." className="w-full p-3 rounded bg-gray-800 text-white resize-none focus:outline-none mb-3" rows={3} />
+                <textarea 
+                  value={actionReason} 
+                  onChange={e => setActionReason(e.target.value)} 
+                  placeholder="Enter reason..." 
+                  className="w-full p-3 rounded bg-gray-800 text-white resize-none focus:outline-none mb-3" 
+                  rows={3} 
+                />
               )}
               {actionType === "suspend" && (
-                <input type="number" value={suspendDuration} min={1} onChange={e => setSuspendDuration(e.target.value)} placeholder="Suspension duration (days)" className="w-full p-3 rounded bg-gray-800 text-white mb-3" />
+                <input 
+                  type="number" 
+                  value={suspendDuration} 
+                  min={1} 
+                  onChange={e => setSuspendDuration(e.target.value)} 
+                  placeholder="Suspension duration (days)" 
+                  className="w-full p-3 rounded bg-gray-800 text-white mb-3" 
+                />
               )}
-              <button className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
+              <button 
+                className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700"
                 onClick={handleActionConfirm}
                 disabled={(actionType === "ban" && !actionReason.trim()) || (actionType === "suspend" && (!actionReason.trim() || !suspendDuration))}
-              >Confirm</button>
+              >
+                Confirm
+              </button>
             </div>
           </div>
         )}
@@ -429,44 +518,56 @@ export default function Riders() {
               <h2 className="text-2xl font-bold mb-2">{detailsModal.name}'s Profile</h2>
               <div className="flex gap-4 mb-2">
                 {detailsModal.profile_pic_uid ? (
-                  <img src={detailsModal.profile_pic_uid} className="w-16 h-16 rounded-full" />
+                  <img src={detailsModal.profile_pic_uid} className="w-16 h-16 rounded-full" alt="Profile" />
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-gray-800 flex items-center justify-center">-</div>
                 )}
                 <div>
                   <div className="font-bold">Aadhar:</div>
-                  <div>{detailsModal.aadhar}</div>
+                  <div>{detailsModal.aadhar || "-"}</div>
                   <div className="font-bold">License:</div>
-                  <div>{detailsModal.license_number}</div>
+                  <div>{detailsModal.license_number || "-"}</div>
                   <div className="font-bold">Status:</div>
-                  <div>{detailsModal.status}</div>
+                  <div>{detailsModal.status || "-"}</div>
+                  {detailsModal.status === "suspended" && (
+                    <>
+                      <div className="font-bold">Suspended Until:</div>
+                      <div>{dayjs(detailsModal.suspension_until).format("DD MMM YYYY")}</div>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex gap-4 mb-4">
                 <div>
                   <div className="font-bold">Aadhar Image:</div>
                   {detailsModal.aadhar_img ? (
-                    <img src={detailsModal.aadhar_img} className="w-32 h-20 rounded mb-2" />
+                    <img src={detailsModal.aadhar_img} className="w-32 h-20 rounded mb-2" alt="Aadhar" />
                   ) : "-"}
                   <div className="font-bold">License Image:</div>
                   {detailsModal.license_image ? (
-                    <img src={detailsModal.license_image} className="w-32 h-20 rounded" />
+                    <img src={detailsModal.license_image} className="w-32 h-20 rounded" alt="License" />
                   ) : "-"}
                 </div>
               </div>
               <hr className="my-2 border-gray-700" />
-              {/* Mock chat UI */}
               <div>
-                <h3 className="font-semibold mb-2">Mock Chat (not functional):</h3>
-                <div className="bg-[#181818] rounded p-2 mb-2 h-32 overflow-y-auto text-gray-400">Chat with this rider will appear here.</div>
+                <h3 className="font-semibold mb-2">Chat:</h3>
+                <button
+                  className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded mb-2"
+                  onClick={() => handleChatNavigation(detailsModal.id)}
+                >
+                  Open Chat
+                </button>
               </div>
               <hr className="my-2 border-gray-700" />
-              {/* History */}
               <div>
                 <h3 className="font-semibold mb-2">Action History:</h3>
                 <ul className="max-h-32 overflow-y-auto">
                   {detailsHistory.length > 0 ? detailsHistory.map(h => (
-                    <li key={h.id} className="border-b border-[#444] py-1 text-xs">{h.action} - {h.reason} <span className="text-gray-500">({dayjs(h.timestamp).format('DD MMM YYYY HH:mm')})</span></li>
+                    <li key={h.id} className="border-b border-[#444] py-1 text-xs">
+                      {h.action} - {h.reason} 
+                      <span className="text-gray-500"> ({dayjs(h.timestamp).format('DD MMM YYYY HH:mm')})</span>
+                    </li>
                   )) : <li className="text-gray-400">No actions found.</li>}
                 </ul>
               </div>

@@ -29,12 +29,13 @@ export default function SuperUsers() {
     async function fetchAll() {
       const { data: users } = await supabase
         .from("user_profiles")
-        .select("user_id, full_name, user_type, status, suspended_until");
+        .select("user_id, full_name, status, suspended_until")
+        .limit(100);
 
       const merged = (users || []).map((u) => ({
         id: u.user_id,
         name: u.full_name,
-        type: u.user_type || "User",
+        type: "User",
         status: u.status ?? "active",
         suspended_until: u.suspended_until,
       }));
@@ -76,15 +77,24 @@ export default function SuperUsers() {
       duration = suspendDays;
     } else if (newStatus === "banned") {
       updates.suspended_until = null;
-      updates.ban_reason = reason;
       updates.suspension_reason = null;
-    } else {
+      updates.ban_reason = reason;
+    } else if (newStatus === "active") {
       updates.suspended_until = null;
       updates.suspension_reason = null;
       updates.ban_reason = null;
     }
 
-    await supabase.from("user_profiles").update(updates).eq("user_id", user.id);
+    const { error } = await supabase
+      .from("user_profiles")
+      .update(updates)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Failed to update user status:", error);
+      alert("Error updating status: " + error.message);
+      return;
+    }
 
     await logUserHistory({
       user_id: user.id,
@@ -109,10 +119,8 @@ export default function SuperUsers() {
                 status: "active",
                 suspended_until: null,
                 suspension_reason: null,
-                ban_reason: null,
               })
               .eq("user_id", user.id);
-
             await logUserHistory({
               user_id: user.id,
               action: "Auto-reactivated",
@@ -177,18 +185,24 @@ export default function SuperUsers() {
               <h2 className="text-xl font-semibold">{user.name}</h2>
               <p className="text-sm">ID: {user.id}</p>
               {user.status === "suspended" && user.suspended_until && (
-                <p className="text-xs text-yellow-400">Until: {new Date(user.suspended_until).toLocaleString()}</p>
+                <p className="text-xs text-yellow-400">
+                  Until: {new Date(user.suspended_until).toLocaleString()}
+                </p>
               )}
             </div>
           ))}
         </div>
 
+        {/* User Modal */}
         {selected && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-[#1F1F1F] rounded-lg p-6 w-[90%] max-w-lg relative">
               <button
                 className="absolute top-3 right-4 text-white text-xl"
-                onClick={() => { setSelected(null); setUserHistory([]); }}
+                onClick={() => {
+                  setSelected(null);
+                  setUserHistory([]);
+                }}
               >
                 &times;
               </button>
@@ -198,7 +212,10 @@ export default function SuperUsers() {
                 <p>Type: {selected.type}</p>
                 <p>Status: {selected.status ?? "active"}</p>
                 {selected.status === "suspended" && selected.suspended_until && (
-                  <p>Suspended Until: {new Date(selected.suspended_until).toLocaleString()}</p>
+                  <p>
+                    Suspended Until:{" "}
+                    {new Date(selected.suspended_until).toLocaleString()}
+                  </p>
                 )}
               </div>
               <div className="mt-4 flex gap-2">
