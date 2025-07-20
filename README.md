@@ -71,6 +71,9 @@ src/
 ├── utils/            # Utility functions and constants
 ├── App.tsx           # Main application component
 └── main.tsx          # Entry point
+```
+
+---
 
 ## 🛠️ Installation & Setup
 
@@ -84,6 +87,11 @@ npm install
 
 # Run the development server
 npm run dev
+```
+
+> Make sure Node.js and npm are installed on your system.
+
+---
 
 ## 📌 Notes
 
@@ -96,7 +104,15 @@ npm run dev
 
 ## 📧 Contact
 
-Maintained by **Akhil Nair**  
+Maintained by **[Akhil Nair](https://github.com/AkhilNair04)**  
 Feel free to raise issues or contribute via PRs!
+
+---
+
+## 💡 Future Updations
+
+- Connecting order summary and transaction summary to backend
+- Getting charts to track finances
+- Deployment of the website
 
 ---
