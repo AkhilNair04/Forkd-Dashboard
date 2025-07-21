@@ -64,7 +64,7 @@ function App() {
 
           {/* Core pages */}
           <Route
-            path="/chef"
+            path="/chefs"
             element={
               <PrivateRoute>
                 <Chefs />
