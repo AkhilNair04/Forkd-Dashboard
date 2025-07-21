@@ -9,7 +9,7 @@ import Rider from "./pages/Rider";
 import Users from "./pages/Users";
 import Complaints from "./pages/Complaints";
 import RiderStatus from "./pages/rider-status";
-import ChatPage from "./pages/ChatPage";   
+import ChatPage from "./pages/Chatpage";   
 
 
 const PrivateRoute = ({ children }) => {
